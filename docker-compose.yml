@@ -1,0 +1,41 @@
+services:
+  # Database: PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: user_admin
+      POSTGRES_PASSWORD: password_secret
+      POSTGRES_DB: my_database
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Backend: Node.js
+  backend:
+    build: ./back-end
+    container_name: node_backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgres://user_admin:password_secret@db:5432/my_database
+    depends_on:
+      - db
+
+  # Frontend: Next.js
+  frontend:
+    build: ./front-end
+    container_name: next_frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:5000
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
