@@ -29,4 +29,4 @@
 - [ ] database - create seed.js: anhduc
 - [ ] API dinh vi: trongdat
 - [ ] FimaAI: yen phuong
-- [ ] setup backend
+- [ ] setup githup: giau
