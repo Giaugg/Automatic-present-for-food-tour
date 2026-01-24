@@ -8,17 +8,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout full history
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # ⭐ CỰC KỲ QUAN TRỌNG
 
       - name: Send push info to Discord
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
           BRANCH="${GITHUB_REF#refs/heads/}"
-          COMMIT_COUNT=$(git rev-list --count HEAD ^${{ github.event.before }} 2>/dev/null || echo 1)
+          COMMIT_COUNT="${{ github.event.commits | length }}"
 
-          COMMITS=$(git log --pretty=format:"%h: %s - %an" ${{ github.event.before }}..HEAD)
+          COMMITS=$(git log -${COMMIT_COUNT} --pretty=format:"%h: %s - %an")
 
           curl -H "Content-Type: application/json" \
           -d "{
