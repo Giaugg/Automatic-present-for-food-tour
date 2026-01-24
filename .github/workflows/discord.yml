@@ -18,7 +18,7 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
           BRANCH="${GITHUB_REF#refs/heads/}"
-          COMMIT_COUNT="${{ github.event.commits }}"
+          COMMIT_COUNT="${{ github.event.commits}}"
 
           COMMITS=$(git log -${COMMIT_COUNT} --pretty=format:"%h: %s - %an")
 
