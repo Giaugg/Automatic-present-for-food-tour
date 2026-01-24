@@ -1,0 +1,19 @@
+# --- Back-end (Node.js) ---
+back-end/node_modules/
+back-end/dist/
+back-end/.env
+back-end/*.log
+
+# --- Front-end (Next.js) ---
+front-end/node_modules/
+front-end/.next/
+front-end/out/
+front-end/build/
+front-end/.env*.local
+front-end/*.log
+
+# --- General / IDE ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
