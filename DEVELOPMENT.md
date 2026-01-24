@@ -23,3 +23,10 @@
 ## agile
 - [ ] làm việc trên branch rồi merge bằng PR(pull request)
 - [ ] mỗi tuần review code tối thứ 3:8h
+
+
+## Tuan 2
+- [ ] database - create seed.js: anhduc
+- [ ] API dinh vi: trongdat
+- [ ] FimaAI: yen phuong
+- [ ] setup backend
