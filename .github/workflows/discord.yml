@@ -11,15 +11,18 @@ jobs:
       - name: Checkout full history
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # ⭐ CỰC KỲ QUAN TRỌNG
+          fetch-depth: 0
 
       - name: Send push info to Discord
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
           BRANCH="${GITHUB_REF#refs/heads/}"
-          COMMIT_COUNT="${{ github.event.commits | length }}"
 
+          # số commit trong push (từ payload)
+          COMMIT_COUNT=$(jq length <<< '${{ toJson(github.event.commits) }}')
+
+          # list commit
           COMMITS=$(git log -${COMMIT_COUNT} --pretty=format:"%h: %s - %an")
 
           curl -H "Content-Type: application/json" \
