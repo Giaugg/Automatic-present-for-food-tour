@@ -1,0 +1,27 @@
+name: Discord Notify
+
+on:
+  push:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Send push info to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          COMMIT_COUNT=$(git rev-list --count HEAD ^${{ github.event.before }} 2>/dev/null || echo 1)
+
+          COMMITS=$(git log --pretty=format:"%h: %s - %an" ${{ github.event.before }}..HEAD)
+
+          curl -H "Content-Type: application/json" \
+          -d "{
+            \"content\": \"[${{ github.repository }}] ${{ github.actor }} pushed ${COMMIT_COUNT} commit(s) to ${BRANCH}:\n${COMMITS}\"
+          }" \
+          $DISCORD_WEBHOOK
