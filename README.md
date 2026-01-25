@@ -1,3 +1,9 @@
+Thành viên dự án:
+- Lê Hữu Giàu (Leader)
+- Lê Nguyễn Anh Đức
+- Nguyễn Trọng Đạt
+- Trần Yến Phượng
+
 # Automatic-present-for-food-tour
 run docker: ``docker compose up``
 
