@@ -88,20 +88,20 @@ export default function FoodMap() {
 
     return null;
   }
-  useEffect(() => {
-    async function loadPOI() {
-      const radius = 1000;
+  // useEffect(() => {
+  //   async function loadPOI() {
+  //     const radius = 1000;
 
-      const res = await fetch(
-        `http://localhost:5000/api/food-street?lat=${centerLat}&lon=${centerLon}&radius=${radius}`
-      );
+  //     const res = await fetch(
+  //       `http://localhost:5000/api/food-street?lat=${centerLat}&lon=${centerLon}&radius=${radius}`
+  //     );
 
-      const data = await res.json();
-      setPois(data);
-    }
+  //     const data = await res.json();
+  //     setPois(data);
+  //   }
 
-    loadPOI();
-  }, []);
+  //   loadPOI();
+  // }, []);
 
   return (
     <>
@@ -131,7 +131,7 @@ export default function FoodMap() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {pois.map((poi) => (
+        {/* {pois.map((poi) => (
           <Marker key={poi.id} position={[poi.lat, poi.lon]}>
             <Popup>
               <b>{poi.name}</b>
@@ -139,7 +139,7 @@ export default function FoodMap() {
               Loại: {poi.type}
             </Popup>
           </Marker>
-        ))}
+        ))} */}
 
         {userPosition && (
           <>
