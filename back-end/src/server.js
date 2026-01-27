@@ -1,17 +1,11 @@
 const express = require('express');
-const { Pool } = require('pg'); // Import thư viện kết nối PostgreSQL
-require('dotenv').config(); // Để đọc biến môi trường từ file .env
+const pool = require('./config/db'); // Import kết nối PostgreSQL từ config
+require('dotenv').config();
 
 const app = express();
 
 // Chỉnh lại port: Ưu tiên lấy từ biến môi trường (Docker dùng)
 const port = process.env.PORT || 5000;
-
-// Cấu hình kết nối PostgreSQL
-// DATABASE_URL sẽ được truyền từ file docker-compose.yml
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
 
 app.use(express.json());
 
