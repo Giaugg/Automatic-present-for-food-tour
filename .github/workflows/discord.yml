@@ -2,29 +2,42 @@ name: Discord Notify
 
 on:
   push:
+  pull_request:
+    types: [opened, closed]
 
 jobs:
   notify:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout full history
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Send push info to Discord
+      - name: Notify Discord
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          BRANCH="${GITHUB_REF#refs/heads/}"
+          EVENT="${{ github.event_name }}"
 
-          COMMIT_COUNT=$(jq length <<< '${{ toJson(github.event.commits) }}')
+          if [[ "$EVENT" == "push" ]]; then
+            MSG="🚀 Push by ${{ github.actor }} to ${{ github.ref_name }}"
+          fi
 
-          COMMITS=$(git log -${COMMIT_COUNT} --pretty=format:"%h: %s - %an")
+          if [[ "$EVENT" == "pull_request" ]]; then
+            ACTION="${{ github.event.action }}"
+            TITLE="${{ github.event.pull_request.title }}"
+            AUTHOR="${{ github.event.pull_request.user.login }}"
+
+            if [[ "$ACTION" == "opened" ]]; then
+              MSG="📢 PR Opened: $TITLE by $AUTHOR"
+            elif [[ "$ACTION" == "closed" && "${{ github.event.pull_request.merged }}" == "true" ]]; then
+              MSG="✅ PR Merged: $TITLE"
+            else
+              MSG="❌ PR Closed (not merged): $TITLE"
+            fi
+          fi
 
           curl -H "Content-Type: application/json" \
-          -d "{
-            \"content\": \"[${{ github.repository }}] ${{ github.actor }} pushed ${COMMIT_COUNT} commit(s) to ${BRANCH}:\n${COMMITS}\"
-          }" \
+          -d "{\"content\": \"$MSG\"}" \
           $DISCORD_WEBHOOK
