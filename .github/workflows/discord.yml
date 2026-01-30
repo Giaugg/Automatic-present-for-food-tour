@@ -4,37 +4,46 @@ on:
   push:
   pull_request:
     types: [opened, closed]
+  issue_comment:
+    types: [created]
 
 jobs:
   notify:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Notify Discord
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
           EVENT="${{ github.event_name }}"
+          ACTOR="${{ github.actor }}"
 
           if [[ "$EVENT" == "push" ]]; then
-            MSG="🚀 Push by ${{ github.actor }} to ${{ github.ref_name }}"
+            MSG="🚀 **Push** by $ACTOR to \`${{ github.ref_name }}\`"
           fi
 
           if [[ "$EVENT" == "pull_request" ]]; then
-            ACTION="${{ github.event.action }}"
             TITLE="${{ github.event.pull_request.title }}"
-            AUTHOR="${{ github.event.pull_request.user.login }}"
+            ACTION="${{ github.event.action }}"
 
             if [[ "$ACTION" == "opened" ]]; then
-              MSG="📢 PR Opened: $TITLE by $AUTHOR"
+              MSG="📢 **PR Opened**: $TITLE by $ACTOR"
             elif [[ "$ACTION" == "closed" && "${{ github.event.pull_request.merged }}" == "true" ]]; then
-              MSG="✅ PR Merged: $TITLE"
+              MSG="✅ **PR Merged**: $TITLE"
             else
-              MSG="❌ PR Closed (not merged): $TITLE"
+              MSG="❌ **PR Closed** (not merged): $TITLE"
+            fi
+          fi
+
+          if [[ "$EVENT" == "issue_comment" ]]; then
+            COMMENT="${{ github.event.comment.body }}"
+            ISSUE_TITLE="${{ github.event.issue.title }}"
+
+            if [[ "${{ github.event.issue.pull_request }}" != "" ]]; then
+              MSG="💬 **New PR Comment** by $ACTOR on **$ISSUE_TITLE**:\n$COMMENT"
+            else
+              MSG="💬 **New Issue Comment** by $ACTOR on **$ISSUE_TITLE**:\n$COMMENT"
             fi
           fi
 
