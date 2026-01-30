@@ -35,8 +35,13 @@
 - [ ] mỗi tuần team review-merge code tối thứ 3:8h, mọi người nên có sự review trước và buổi họp chỉ giải quyết những vấn đề tồn đọng ở PR và bàn về các task mới
 
 ## Tuan 2
-- [ ] database - create seed.js: anhduc
+- [x] database - create seed.js: anhduc
+  - [x] thiet ke database
+  - [x] tạo dữ liệu mẫu tự động
+  - [x] pass code review
 - [ ] API dinh vi: trongdat
+  - [x] show gg map co hien thi duoc quan an
+  - [ ] pas code review
 - [ ] FimaAI: yen phuong
 - [x] Giau: setupGitHub
   - [x] setup base code - docker
@@ -44,3 +49,4 @@
   - [x] giải thích quy trình làm việc - Git
   - [x] Git gửi thông báo khi có sự kiện
   - [x] lên idea dự án và phân chia công việc
+  - [x] code review
