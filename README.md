@@ -15,8 +15,8 @@ run front-end
 run back-end
 - vao folder back-end run: ``node src/server.js``
 
-**Sau khiạo DB Automatic-present-for-food-tour
+**Sau khi tạo DB Automatic-present-for-food-tour
 Tạo bảng
 - vao folder back-end run: ``node src/migrations/init.js up``
-Thêm dữ liệu
+Thêm dữ liệu mẫu
 - vao folder back-end run: ``node src/scripts/seed_data.js`` 
