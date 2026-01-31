@@ -51,3 +51,16 @@
   - [x] Git gửi thông báo khi có sự kiện
   - [x] lên idea dự án và phân chia công việc
   - [x] code review
+
+## Tuan 3
+- [ ] BE:
+  - [ ] chia cấu trúc thư mục
+  - [ ] tạo api trả về list quán ăn với cấu trúc thư mục mới
+- [ ] FE:
+  - [ ] tạo thêm router cho trang: (chỉ cần có trang mẫu)
+    - [ ]  thanh toán
+    - [ ]  trang admin
+    - [ ]  trang quản lí gian hàng dành cho quán ăn
+    - [ ]  trang thông tin khách hàng 
+
+
