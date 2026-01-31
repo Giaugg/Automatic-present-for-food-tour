@@ -60,18 +60,18 @@ export default function MapView() {
     <div className="h-full w-full relative">
       {/* GPS Status indicator */}
       {!isSupported && (
-        <div className="absolute top-2 left-2 z-[1000] bg-red-100 text-red-700 px-3 py-1 rounded text-sm">
+        <div className="absolute top-2 left-2 z-1000 bg-destructive/10 text-destructive px-3 py-1 rounded text-sm">
           GPS không được hỗ trợ
         </div>
       )}
       {isLoading && isSupported && (
-        <div className="absolute top-2 left-2 z-[1000] bg-blue-100 text-blue-700 px-3 py-1 rounded text-sm flex items-center gap-2">
-          <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="absolute top-2 left-2 z-1000 bg-primary/10 text-primary px-3 py-1 rounded text-sm flex items-center gap-2">
+          <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
           Đang lấy vị trí GPS...
         </div>
       )}
       {error && (
-        <div className="absolute top-2 left-2 z-[1000] bg-yellow-100 text-yellow-700 px-3 py-1 rounded text-sm">
+        <div className="absolute top-2 left-2 z-1000 bg-muted text-muted-foreground px-3 py-1 rounded text-sm">
           {error.code === 1 ? "Bạn chưa cho phép truy cập vị trí" : "Không thể lấy vị trí GPS"}
         </div>
       )}
@@ -101,7 +101,7 @@ export default function MapView() {
               <Popup>
                 <div className="text-center">
                   <strong>Vị trí của bạn</strong>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Độ chính xác: ~{Math.round(accuracy ?? 0)}m
                   </p>
                 </div>
@@ -119,16 +119,16 @@ export default function MapView() {
               position={[poi.latitude, poi.longitude]}
             >
               <Popup>
-                <div className="min-w-[200px]">
+                <div className="min-w-50">
                   <h3 className="font-semibold text-base">
                     {getPOIName(poi.id)}
                   </h3>
                   {getPOIDescription(poi.id) && (
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                       {getPOIDescription(poi.id)}
                     </p>
                   )}
-                  <span className="inline-block mt-2 px-2 py-0.5 text-xs bg-gray-100 rounded">
+                  <span className="inline-block mt-2 px-2 py-0.5 text-xs bg-muted rounded">
                     {poi.category}
                   </span>
                 </div>
