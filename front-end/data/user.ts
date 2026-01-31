@@ -1,5 +1,5 @@
 // src/data/users.ts
-import type { UserDTO, UserSummaryDTO } from "@/types/users";
+import type { UserDTO, UserSummaryDTO } from "@/types/user";
 
 export const users: UserDTO[] = [
   {
