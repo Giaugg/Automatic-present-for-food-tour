@@ -39,9 +39,10 @@
   - [x] thiet ke database
   - [x] tạo dữ liệu mẫu tự động
   - [x] pass code review
-- [ ] API dinh vi: trongdat
+- [x] API dinh vi: trongdat
+  - [x] theme css
   - [x] show gg map co hien thi duoc quan an
-  - [ ] pas code review
+  - [x] pas code review
 - [ ] FimaAI: yen phuong
 - [x] Giau: setupGitHub
   - [x] setup base code - docker
