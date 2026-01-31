@@ -53,14 +53,23 @@
   - [x] code review
 
 ## Tuan 3
-- [ ] BE:
-  - [ ] chia cấu trúc thư mục
-  - [ ] tạo api trả về list quán ăn với cấu trúc thư mục mới
-- [ ] FE:
+- [ ] DB: *AnhDuc*
+  - [ ] điều chỉnh password_hash
+- [x] BE: *Giau*
+  - [x] chia cấu trúc thư mục
+  - [x] tạo các EndPoint
+    - [x] login, register
+    - [x] tour
+    - [x] poi
+- [ ] FE: *TrongDat*
   - [ ] tạo thêm router cho trang: (chỉ cần có trang mẫu)
     - [ ]  thanh toán
     - [ ]  trang admin
     - [ ]  trang quản lí gian hàng dành cho quán ăn
-    - [ ]  trang thông tin khách hàng 
+    - [ ]  trang thông tin khách hàng
+- [ ] Test API backEnd:
+  - [ ] endpoint duoc tao boi vibe coding nen can test lai ky truoc khi sang step tiep theo
+    - [ ] Auth, POI: *AnhDuc*
+    - [ ] Tuor: *YenPhuong*
 
 
