@@ -39,9 +39,10 @@
   - [x] thiet ke database
   - [x] tạo dữ liệu mẫu tự động
   - [x] pass code review
-- [ ] API dinh vi: trongdat
+- [x] API dinh vi: trongdat
+  - [x] theme css
   - [x] show gg map co hien thi duoc quan an
-  - [ ] pas code review
+  - [x] pas code review
 - [ ] FimaAI: yen phuong
 - [x] Giau: setupGitHub
   - [x] setup base code - docker
@@ -50,3 +51,25 @@
   - [x] Git gửi thông báo khi có sự kiện
   - [x] lên idea dự án và phân chia công việc
   - [x] code review
+
+## Tuan 3
+- [ ] DB: *AnhDuc*
+  - [ ] điều chỉnh password_hash
+- [x] BE: *Giau*
+  - [x] chia cấu trúc thư mục
+  - [x] tạo các EndPoint
+    - [x] login, register
+    - [x] tour
+    - [x] poi
+- [ ] FE: *TrongDat*
+  - [ ] tạo thêm router cho trang: (chỉ cần có trang mẫu)
+    - [ ]  thanh toán
+    - [ ]  trang admin
+    - [ ]  trang quản lí gian hàng dành cho quán ăn
+    - [ ]  trang thông tin khách hàng
+- [ ] Test API backEnd:
+  - [ ] endpoint duoc tao boi vibe coding nen can test lai ky truoc khi sang step tiep theo
+    - [ ] Auth, POI: *AnhDuc*
+    - [ ] Tuor: *YenPhuong*
+
+
