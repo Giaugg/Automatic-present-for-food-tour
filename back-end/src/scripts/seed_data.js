@@ -1,6 +1,8 @@
+const bcrypt = require('bcrypt');
 const pool = require('../config/db');
 
 const seedData = async () => {
+  const passwordHash = await bcrypt.hash("123456", 10);
   const client = await pool.connect();
   
   try {
@@ -21,21 +23,21 @@ const seedData = async () => {
     // 1. TẠO USER
     const adminResult = await client.query(`
       INSERT INTO users (username, email, password_hash, role)
-      VALUES ('admin_system', 'admin@vinhkhanh.com', 'hash_secret_123', 'admin')
+      VALUES ('admin_system', 'admin@vinhkhanh.com', '${passwordHash}', 'admin')
       RETURNING id
     `);
     const adminId = adminResult.rows[0].id;
 
     const ownerResult = await client.query(`
       INSERT INTO users (username, email, password_hash, role)
-      VALUES ('chuquan_ocoanh', 'oanh@gmail.com', 'hash_secret_456', 'owner')
+      VALUES ('chuquan_ocoanh', 'oanh@gmail.com', '${passwordHash}', 'owner')
       RETURNING id
     `);
     const ownerId = ownerResult.rows[0].id;
 
     const visitorResult = await client.query(`
       INSERT INTO users (username, email, password_hash, role)
-      VALUES ('john_traveler', 'john@example.com', 'hash_secret_789', 'visitor')
+      VALUES ('john_traveler', 'john@example.com', '${passwordHash}', 'visitor')
       RETURNING id
     `);
     const visitorId = visitorResult.rows[0].id;
