@@ -1,31 +1,5 @@
 # 🧪 API Testing Guide
 
-## 📦 Cài đặt và Khởi động
-
-### 1. Clone project và cài dependencies
-```bash
-git clone https://github.com/Giaugg/Automatic-present-for-food-tour.git
-cd Automatic-present-for-food-tour/back-end
-npm install
-```
-
-### 2. Cấu hình Database
-Tạo file `.env` trong thư mục `back-end`:
-```env
-DATABASE_URL=postgres://postgres:123456@localhost:5432/Automatic-present-for-food-tour
-PORT=5000
-JWT_SECRET=your_secret_key_here
-```
-
-### 3. Khởi động server
-```bash
-npm start
-```
-
-Server chạy tại: `http://localhost:5000`
-
----
-
 ## 🚀 Test API với REST Client
 
 ### Bước 1: Cài đặt Extension
@@ -40,9 +14,8 @@ Server chạy tại: `http://localhost:5000`
 ```
 
 ### Bước 3: Test API
+- Khởi động server
 - Click **"Send Request"** phía trên mỗi test case
-- Kết quả hiển thị ngay bên cạnh
-- Không cần rời khỏi VS Code!
 
 ---
 
@@ -60,8 +33,6 @@ Server chạy tại: `http://localhost:5000`
 | 6 | POST | `/api/auth/login` | Test user không tồn tại | ❌ |
 | 7 | POST | `/api/auth/register` | Test duplicate email | ❌ |
 | 8 | POST | `/api/auth/register` | Test invalid role | ❌ |
-
-**✨ Feature:** Password được hash bằng **bcrypt** trước khi lưu database!
 
 ### 📍 POI API (`/api/pois`)
 
@@ -124,24 +95,6 @@ Giờ có thể chạy **test #15-19** với Authorization header!
 
 ---
 
-## 🎯 Quick Start Demo
-
-```bash
-# 1. Khởi động server
-cd back-end
-npm start
-
-# 2. Mở VS Code
-code .
-
-# 3. Mở file test
-# File: back-end/api-tests.http
-
-# 4. Click "Send Request" để test!
-```
-
----
-
 ## ❗ Lưu ý quan trọng
 
 ### ✅ Before Testing
@@ -154,69 +107,6 @@ code .
 Một số test cần ID thực từ database:
 - `YOUR_TOUR_ID_HERE` → Lấy từ test #12
 - `YOUR_POI_ID_HERE` → Lấy từ test #9
-- File đã có sẵn ID mẫu, nhưng có thể cần update
-
-### ⏰ JWT Token expires sau 1 ngày
-Nếu gặp lỗi **401 Unauthorized**, login lại để lấy token mới!
-
----
-
-## 🐛 Troubleshooting
-
-### Lỗi: Connection refused
-```bash
-# Kiểm tra server
-cd back-end
-npm start
-```
-
-### Lỗi: 401 Unauthorized
-- Token hết hạn → Login lại (test #4)
-- Chưa thêm token → Kiểm tra `@token` ở đầu file
-
-### Lỗi: 500 Invalid UUID
-- Đang dùng nhầm JWT token làm ID
-- Thay bằng UUID thực từ response test khác
-
-### Lỗi: Cannot find module 'bcrypt'
-```bash
-cd back-end
-npm install bcrypt
-npm rebuild bcrypt
-```
-
----
-
-## 🤝 Chia sẻ với Team
-
-1. **Push code lên GitHub:**
-```bash
-git add .
-git commit -m "Add API testing file and guide"
-git push
-```
-
-2. **Chia sẻ hướng dẫn:**
-- File test: `back-end/api-tests.http`
-- Hướng dẫn này: `TESTING.md`
-
-3. **Team member chỉ cần:**
-```bash
-git pull
-cd back-end
-npm install
-npm start
-# Mở api-tests.http và click "Send Request"
-```
-
----
-
-## 📚 Tài liệu thêm
-
-- [REST Client Extension](https://marketplace.visualstudio.com/items?itemName=humao.rest-client)
-- [Express.js Documentation](https://expressjs.com/)
-- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-- [JWT.io](https://jwt.io/) - Debug JWT tokens
 
 ---
 
