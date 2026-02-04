@@ -157,7 +157,7 @@ Authorization: Bearer {{token}}
 
 ###
 ### 16. Update Tour (requires auth)
-PUT {{baseUrl}}/api/tours/d12839e5-3432-47f7-8d51-041c0ab78f8b
+PUT {{baseUrl}}/api/tours/89643b14-0a8a-49a0-9f57-fbe610b076c2
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -171,7 +171,7 @@ Authorization: Bearer {{token}}
 
 ###
 ### 17. Add/Update POIs to Tour (requires auth)
-POST {{baseUrl}}/api/tours/d12839e5-3432-47f7-8d51-041c0ab78f8b/items
+POST {{baseUrl}}/api/tours/89643b14-0a8a-49a0-9f57-fbe610b076c2/items
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -182,22 +182,18 @@ Authorization: Bearer {{token}}
       "step_order": 1
     },
     {
-      "poi_id": "POI_ID_2",
+      "poi_id": "ed4f2fbd-5f0e-431b-bed9-97e14a461ae7",
       "step_order": 2
-    },
-    {
-      "poi_id": "POI_ID_3",
-      "step_order": 3
     }
   ]
 }
 
 ###
 ### 18. Remove POI from Tour (requires auth)
-DELETE {{baseUrl}}/api/tours/d12839e5-3432-47f7-8d51-041c0ab78f8b/items/67e5aaa5-c8de-4ac5-b42f-a38daa2b7b5e
+DELETE {{baseUrl}}/api/tours/89643b14-0a8a-49a0-9f57-fbe610b076c2/items/67e5aaa5-c8de-4ac5-b42f-a38daa2b7b5e
 Authorization: Bearer {{token}}
 
 ###
 ### 19. Delete Tour (requires auth)
-DELETE {{baseUrl}}/api/tours/d12839e5-3432-47f7-8d51-041c0ab78f8b
+DELETE {{baseUrl}}/api/tours/89643b14-0a8a-49a0-9f57-fbe610b076c2
 Authorization: Bearer {{token}}
