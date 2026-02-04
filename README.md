@@ -19,4 +19,10 @@ run back-end
 Tạo bảng
 - vao folder back-end run: ``node src/migrations/init.js up``
 Thêm dữ liệu mẫu
-- vao folder back-end run: ``node src/scripts/seed_data.js`` 
+- vao folder back-end run: ``node src/scripts/seed_data.js``
+
+# đăng nhập: emai + password
+- admin ``admin@vinhkhanh.com``
+- chu quan ``oanh@gmail.com``
+- user ``john@example.com``
+- password ``123456``
