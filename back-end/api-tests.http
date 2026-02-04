@@ -1,0 +1,203 @@
+@baseUrl = http://localhost:5000
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImI3YjAzZmFkLTNjMDYtNDFkZC04MzZkLTQ0NTdmOTc5YzUxYSIsInJvbGUiOiJ2aXNpdG9yIiwiaWF0IjoxNzcwMjA0NDA2LCJleHAiOjE3NzAyOTA4MDZ9.MLnGGfEZugdRdh1h-nQ8U3vN-oaLzKsdHESyaLm5ImI
+
+### ============================================
+### SERVER HEALTH CHECK
+### ============================================
+
+### Test Server Status
+GET {{baseUrl}}/
+
+
+### ============================================
+### AUTHENTICATION API (/api/auth)
+### ============================================
+
+### 1. Register User - Visitor (default role)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "visitor1",
+  "email": "visitor1@test.com",
+  "password": "password123"
+}
+
+###
+### 2. Register User - Owner
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "shop_owner",
+  "email": "owner@shop.com",
+  "password": "ownerpass123",
+  "role": "owner"
+}
+
+###
+### 3. Register User - Admin
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "admin_user",
+  "email": "admin@test.com",
+  "password": "adminpass123",
+  "role": "admin"
+}
+
+###
+### 4. Login - Success Case (Copy token từ response vào @token ở đầu file)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "visitor1@test.com",
+  "password": "password123"
+}
+
+###
+### 5. Login - Wrong Password (should return 401)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "visitor1@test.com",
+  "password": "wrongpassword"
+}
+
+###
+### 6. Login - Non-existent User (should return 401)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "notexist@test.com",
+  "password": "password123"
+}
+
+###
+### 7. Register - Duplicate Email (should return 409)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "newuser",
+  "email": "visitor1@test.com",
+  "password": "password123"
+}
+
+###
+### 8. Register - Invalid Role (should return 400)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "baduser",
+  "email": "bad@test.com",
+  "password": "password123",
+  "role": "superadmin"
+}
+
+
+### ============================================
+### POI API (/api/pois)
+### ============================================
+
+### 9. Get All POIs (default: English)
+GET {{baseUrl}}/api/pois
+
+###
+### 10. Get All POIs (Vietnamese)
+GET {{baseUrl}}/api/pois?lang=vi
+
+###
+### 11. Get POI Details by ID (replace with real POI ID)
+GET {{baseUrl}}/api/pois/67e5aaa5-c8de-4ac5-b42f-a38daa2b7b5e
+
+
+### ============================================
+### TOUR API (/api/tours) - PUBLIC ROUTES
+### ============================================
+
+### 12. Get All Tours
+GET {{baseUrl}}/api/tours
+
+###
+### 13. Get Tour Details by ID (replace with real tour ID)
+GET {{baseUrl}}/api/tours/d12839e5-3432-47f7-8d51-041c0ab78f8b
+
+###
+### 14. Get Tour Details with Vietnamese POI names
+GET {{baseUrl}}/api/tours/d12839e5-3432-47f7-8d51-041c0ab78f8b?lang=vi
+
+
+### ============================================
+### TOUR API - PROTECTED ROUTES (need JWT token)
+### ============================================
+
+### 15. Create New Tour (requires auth)
+POST {{baseUrl}}/api/tours
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": {
+    "en": "Old Quarter Walking Tour",
+    "vi": "Tour Đi Bộ Phố Cổ"
+  },
+  "description": {
+    "en": "Explore the ancient streets",
+    "vi": "Khám phá các con phố cổ"
+  },
+  "thumbnail_url": "https://example.com/image.jpg",
+  "total_duration_minutes": 120
+}
+
+###
+### 16. Update Tour (requires auth)
+PUT {{baseUrl}}/api/tours/d12839e5-3432-47f7-8d51-041c0ab78f8b
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": {
+    "en": "Updated Tour Name",
+    "vi": "Tên Tour Đã Cập Nhật"
+  },
+  "total_duration_minutes": 150
+}
+
+###
+### 17. Add/Update POIs to Tour (requires auth)
+POST {{baseUrl}}/api/tours/d12839e5-3432-47f7-8d51-041c0ab78f8b/items
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "items": [
+    {
+      "poi_id": "67e5aaa5-c8de-4ac5-b42f-a38daa2b7b5e",
+      "step_order": 1
+    },
+    {
+      "poi_id": "POI_ID_2",
+      "step_order": 2
+    },
+    {
+      "poi_id": "POI_ID_3",
+      "step_order": 3
+    }
+  ]
+}
+
+###
+### 18. Remove POI from Tour (requires auth)
+DELETE {{baseUrl}}/api/tours/d12839e5-3432-47f7-8d51-041c0ab78f8b/items/67e5aaa5-c8de-4ac5-b42f-a38daa2b7b5e
+Authorization: Bearer {{token}}
+
+###
+### 19. Delete Tour (requires auth)
+DELETE {{baseUrl}}/api/tours/d12839e5-3432-47f7-8d51-041c0ab78f8b
+Authorization: Bearer {{token}}
