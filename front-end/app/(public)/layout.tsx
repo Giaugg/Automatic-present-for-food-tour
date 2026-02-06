@@ -6,22 +6,22 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[var(--background)]">
+    <div className="min-h-screen bg-background">
       {/* Public Header */}
-      <header className="bg-[var(--card)] border-b border-[var(--border)] p-4">
+      <header className="bg-card border-b border-border p-4">
         <nav className="container mx-auto flex items-center gap-6">
-          <Link href="/" className="text-xl font-bold text-[var(--foreground)]">
+          <Link href="/" className="text-xl font-bold text-foreground">
             Food Tour
           </Link>
           <Link
             href="/map"
-            className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+            className="text-muted-foreground hover:text-foreground"
           >
             Bản đồ
           </Link>
           <Link
             href="/admin"
-            className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+            className="text-muted-foreground hover:text-foreground"
           >
             Quản trị
           </Link>
