@@ -13,11 +13,17 @@ export default function PublicLayout({
           <Link href="/" className="text-xl font-bold text-[var(--foreground)]">
             Food Tour
           </Link>
-          <Link href="/map" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+          <Link
+            href="/map"
+            className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+          >
             Bản đồ
           </Link>
-          <Link href="/checkout" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
-            Thanh toán
+          <Link
+            href="/admin"
+            className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+          >
+            Quản trị
           </Link>
         </nav>
       </header>
