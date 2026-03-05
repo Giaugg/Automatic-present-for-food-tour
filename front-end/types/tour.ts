@@ -1,20 +1,45 @@
-// src/types/tours.ts
+import { POIWithTranslation } from "./pois";
 
-export interface TourDTO {
+export interface TourTranslation {
+  language_code: string;
+  title: string;
+  summary: string;
+}
+
+export interface Tour {
   id: string;
-  name: Record<string, string>; // JSONB
-  description: Record<string, string> | null; // JSONB
-  thumbnail_url: string | null;
-  total_duration_minutes: number | null;
+  price: number | string;
+  thumbnail_url?: string;
   is_active: boolean;
+  created_at: string;
+  title?: string; // Từ join translation
+  summary?: string; // Từ join translation
+  total_duration_minutes?: number;
+  stops_count?: number;
+  stops?: TourStop[];
 }
 
-export interface TourItemDTO {
-  tour_id: string;
-  poi_id: string;
+export interface TourStop {
   step_order: number;
+  poi_id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  category?: string;
+  thumbnail?: string;
+  audio_url?: string;
 }
 
-export interface TourDetailDTO extends TourDTO {
-  items: TourItemDTO[];
+export interface CreateTourDTO {
+  price: number;
+  thumbnail_url?: string;
+  is_active?: boolean;
+  translations: TourTranslation[];
+}
+
+export interface UpdateTourScheduleDTO {
+  items: {
+    poi_id: string;
+    step_order: number;
+  }[];
 }
