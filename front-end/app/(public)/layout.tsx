@@ -10,7 +10,7 @@ export default function PublicLayout({
       {/* Public Header */}
       <header className="bg-card border-b border-border p-4">
         <nav className="container mx-auto flex items-center gap-6">
-          <Link href="/" className="text-xl font-bold text-foreground">
+          <Link href="*" className="text-xl font-bold text-foreground">
             Food Tour
           </Link>
           <Link
