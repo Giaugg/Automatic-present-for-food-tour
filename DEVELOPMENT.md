@@ -53,23 +53,36 @@
   - [x] code review
 
 ## Tuan 3
-- [ ] DB: *AnhDuc*
-  - [ ] điều chỉnh password_hash
+- [x] DB: *AnhDuc*
+  - [x] điều chỉnh password_hash
 - [x] BE: *Giau*
   - [x] chia cấu trúc thư mục
   - [x] tạo các EndPoint
     - [x] login, register
     - [x] tour
     - [x] poi
-- [ ] FE: *TrongDat*
-  - [ ] tạo thêm router cho trang: (chỉ cần có trang mẫu)
+- [x] FE: *TrongDat*
+  - [x] tạo thêm router cho trang: (chỉ cần có trang mẫu)
     - [ ]  thanh toán
-    - [ ]  trang admin
-    - [ ]  trang quản lí gian hàng dành cho quán ăn
-    - [ ]  trang thông tin khách hàng
-- [ ] Test API backEnd:
-  - [ ] endpoint duoc tao boi vibe coding nen can test lai ky truoc khi sang step tiep theo
-    - [ ] Auth, POI: *AnhDuc*
-    - [ ] Tuor: *YenPhuong*
+    - [x]  trang admin
+    - [x]  trang quản lí gian hàng dành cho quán ăn
+    - [x]  trang thông tin khách hàng
+- [x] Test API backEnd:
+  - [x] endpoint duoc tao boi vibe coding nen can test lai ky truoc khi sang step tiep theo
+    - [x] Auth, POI: *AnhDuc*
+    - [x] Tuor: *YenPhuong*
 
-
+## Tuan 4
+- # Giau
+  - [x] DB: Nang cap DB (them cac thuoc tinh moi)
+  - [x] BE: Nang cap BE (them EndPoint, update middleware)
+  - [x] FE: Hoan Thien FE
+* cac task con lai
+  - [ ] Add point: add vi tri bang cach tick tren gg maps
+  - [ ] Update quan ly tours: show + chinh sua POI tren tour
+  - [ ] Full chuc nang thong ke: doanh thu, so lan ghe',...
+  - [ ] Full chuc nang thanh toan
+  - [ ] Thanh toan nhanh chong bang tien trong tai khoan
+  - [ ] Nang cap da ngon ngu
+  - [ ] Mo phong di chuyen tren map
+  - [ ] Phat giong doc

@@ -1,5 +1,5 @@
 // src/data/pois.ts
-import type { POI, POIDetail, POIImage, POITranslation, Review, TrackingLog } from "@/types/poi";
+import type { POI, POIDetail, POIImage, POITranslation, Review, TrackingLog } from "@/types/pois";
 
 // ====== POI LIST (dùng cho map markers / list) ======
 export const pois: POI[] = [
