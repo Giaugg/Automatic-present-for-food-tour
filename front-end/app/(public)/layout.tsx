@@ -57,103 +57,24 @@ export default function PublicLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-card border-b border-border sticky top-0 z-[1001] shadow-sm">
-        <nav className="container mx-auto px-4 h-16 flex items-center justify-between">
-          
-          <div className="flex items-center gap-8">
-            <Link href="/" className="text-2xl font-black text-primary tracking-tighter">
-              FOOD TOUR
-            </Link>
-            
-            <div className="hidden md:flex items-center gap-6">
-              {/* Link Bản đồ */}
-              <Link 
-                href="/map" 
-                className={`text-sm font-bold transition-colors ${
-                  isActive("/map") ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Bản đồ
-              </Link>
-
-              {/* Link Tours */}
-              <Link 
-                href="/tours" 
-                className={`text-sm font-bold transition-colors ${
-                  isActive("/tours") ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Tours
-              </Link>
-
-              {/* Link Quản trị */}
-              {user?.role === "admin" && (
-                <Link 
-                  href="/admin" 
-                  className={`text-sm font-bold transition-colors ${
-                    pathname.startsWith("/admin") ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Quản trị
-                </Link>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {user ? (
-              <div className="flex items-center gap-4">
-                <div className="hidden sm:flex flex-col items-end leading-tight border-r border-border pr-4">
-                  <span className="text-sm font-bold text-emerald-600">
-                    {user.balance.toLocaleString("vi-VN")}đ
-                  </span>
-                  <span className="text-[10px] font-bold text-orange-500 uppercase">
-                    ⭐ {user.points} điểm
-                  </span>
-                </div>
-
-                <div className="relative group">
-                  <button className="flex items-center gap-2 p-0.5 rounded-full border-2 border-transparent hover:border-primary/20 transition-all">
-                    <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold shadow-sm">
-                      {user.full_name?.charAt(0).toUpperCase() || "U"}
-                    </div>
-                  </button>
-
-                  <div className="absolute right-0 top-full pt-2 w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[1002]">
-                    <div className="bg-card border border-border rounded-2xl shadow-xl overflow-hidden">
-                      <div className="px-4 py-3 bg-muted/20 border-b border-border text-foreground">
-                        <p className="text-sm font-bold truncate">{user.full_name}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
-                      </div>
-                      
-                      <div className="p-1">
-                        <Link href="/profile" className={`block px-3 py-2 text-sm rounded-lg font-medium transition-colors ${isActive("/profile") ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}>
-                          Trang cá nhân
-                        </Link>
-                        <Link href="/wallet" className={`block px-3 py-2 text-sm rounded-lg font-medium transition-colors ${isActive("/wallet") ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}>
-                          Ví tiền của tôi
-                        </Link>
-                        <hr className="my-1 border-border/50" />
-                        <button
-                          onClick={handleLogout}
-                          className="w-full text-left px-3 py-2 text-sm text-destructive font-bold hover:bg-destructive/10 rounded-lg transition-colors"
-                        >
-                          Đăng xuất
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                className="px-6 py-2 bg-primary text-white rounded-full text-sm font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all"
-              >
-                Đăng nhập
-              </Link>
-            )}
-          </div>
+      {/* Public Header */}
+      <header className="bg-card border-b border-border p-4">
+        <nav className="container mx-auto flex items-center gap-6">
+          <Link href="*" className="text-xl font-bold text-foreground">
+            Food Tour
+          </Link>
+          <Link
+            href="/map"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            Bản đồ
+          </Link>
+          <Link
+            href="/admin"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            Quản trị
+          </Link>
         </nav>
       </header>
 
