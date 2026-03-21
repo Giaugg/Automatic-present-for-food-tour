@@ -26,16 +26,16 @@ export default function AdminLayout({
             Hồ sơ
           </Link>
           <Link
-            href="/admin/vendor"
+            href="/admin/pois"
             className="block p-2 rounded-(--radius) text-sidebar-foreground hover:bg-sidebar-accent"
           >
-            Quản lý Vendor
+            Quản lý POI
           </Link>
           <Link
-            href="/admin/stores"
+            href="/admin/tours"
             className="block p-2 rounded-(--radius) text-sidebar-foreground hover:bg-sidebar-accent"
           >
-            Quản lý cửa hàng
+            Quản lý Tours
           </Link>
         </nav>
       </aside>

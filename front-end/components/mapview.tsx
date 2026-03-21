@@ -1,13 +1,16 @@
 "use client";
 
+import { useEffect, useState, useMemo, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { pois, poiTranslations } from "@/data/poi";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useState, useEffect, useRef } from "react";
+import { poiApi } from "@/lib/api";
+import { POIWithTranslation } from "@/types/pois";
 
-// Fix lỗi icon marker bị mất trong Next.js
+// --- Cấu hình Leaflet Marker Icon ---
+// Fix lỗi icon marker không hiển thị do đường dẫn tương đối trong Next.js
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "/leaflet/marker-icon-2x.png",
@@ -15,7 +18,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "/leaflet/marker-shadow.png",
 });
 
-// Custom icon cho vị trí GPS (chấm xanh)
+// Custom icon chấm xanh cho vị trí người dùng
 const userLocationIcon = L.divIcon({
   className: "user-location-marker",
   html: `
@@ -32,21 +35,28 @@ const userLocationIcon = L.divIcon({
   iconAnchor: [10, 10],
 });
 
-// Helper: lấy tên POI theo ngôn ngữ
-function getPOIName(poiId: string, lang: string = "vi"): string {
-  const translation = poiTranslations.find(
-    (t) => t.poi_id === poiId && t.language_code === lang
-  );
-  return translation?.name ?? "Địa điểm không tên";
-}
+export default function MapView() {
+  // --- States & Refs ---
+  const { latitude, longitude, accuracy, isLoading: geoLoading, error, isSupported } = useGeolocation();
+  const [pois, setPois] = useState<POIWithTranslation[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [activePoiId, setActivePoiId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-// Helper: lấy mô tả POI theo ngôn ngữ
-function getPOIDescription(poiId: string, lang: string = "vi"): string | null {
-  const translation = poiTranslations.find(
-    (t) => t.poi_id === poiId && t.language_code === lang
-  );
-  return translation?.description ?? null;
-}
+  // --- 1. Fetch dữ liệu POI từ Backend ---
+  useEffect(() => {
+    const fetchPois = async () => {
+      try {
+        const res = await poiApi.getAll('vi'); // Mặc định lấy tiếng Việt
+        setPois(res.data);
+      } catch (err) {
+        console.error("Lỗi khi tải danh sách địa điểm:", err);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+    fetchPois();
+  }, []);
 
 export default function MapView() {
   const { latitude, longitude, accuracy, isLoading, error, isSupported } = useGeolocation();
@@ -162,11 +172,44 @@ export default function MapView() {
     }
   };
 
-  // Tính center dựa trên trung bình tọa độ các POIs
-  const center: [number, number] = [
-    pois.reduce((sum, poi) => sum + poi.latitude, 0) / pois.length,
-    pois.reduce((sum, poi) => sum + poi.longitude, 0) / pois.length,
-  ];
+        // Nếu đi vào bán kính kích hoạt và chưa phát audio của quán này
+        if (distance <= (poi.trigger_radius || 30)) {
+          if (activePoiId !== poi.id) {
+            setActivePoiId(poi.id);
+            if (poi.audio_url && audioRef.current) {
+              audioRef.current.src = poi.audio_url;
+              audioRef.current.play().catch((e) => 
+                console.warn("Trình duyệt chặn tự động phát audio:", e)
+              );
+            }
+          }
+        }
+      });
+    }
+  }, [latitude, longitude, pois, activePoiId]);
+
+  // --- 3. Tính toán Center bản đồ ---
+  const mapCenter = useMemo<[number, number]>(() => {
+    if (latitude && longitude) return [latitude, longitude];
+    if (pois.length > 0) {
+      return [
+        pois.reduce((sum, p) => sum + p.latitude, 0) / pois.length,
+        pois.reduce((sum, p) => sum + p.longitude, 0) / pois.length,
+      ];
+    }
+    return [10.762622, 106.660172]; // Tọa độ mặc định (VD: TP.HCM)
+  }, [pois, latitude, longitude]);
+
+  if (loadingData) {
+    return (
+      <div className="h-full w-full flex items-center justify-center bg-muted/20">
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm font-medium">Đang tải bản đồ ẩm thực...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Vị trí hiển thị trên bản đồ
   const displayLat = useManual && manualLat ? parseFloat(manualLat) : latitude;
@@ -267,7 +310,26 @@ export default function MapView() {
         </div>
       )}
 
-      <MapContainer center={center} zoom={14} className="h-full w-full">
+      {/* Thông báo trạng thái GPS */}
+      <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-2">
+        {!isSupported && (
+          <div className="bg-destructive text-destructive-foreground px-3 py-1.5 rounded-md text-xs font-bold shadow-md">
+            GPS không hỗ trợ
+          </div>
+        )}
+        {geoLoading && (
+          <div className="bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-xs font-bold shadow-md animate-pulse">
+            📍 Đang tìm vị trí của bạn...
+          </div>
+        )}
+        {error && (
+          <div className="bg-muted text-muted-foreground px-3 py-1.5 rounded-md text-xs shadow-md">
+            {error.code === 1 ? "Vui lòng cho phép quyền vị trí" : "Lỗi tín hiệu GPS"}
+          </div>
+        )}
+      </div>
+
+      <MapContainer center={mapCenter} zoom={16} className="h-full w-full">
         <TileLayer
           attribution='&copy; OpenStreetMap contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -276,7 +338,6 @@ export default function MapView() {
         {/* Hiển thị vị trí GPS của người dùng (ưu tiên tọa độ thủ công nếu có) */}
         {displayLat !== null && displayLng !== null && (
           <>
-            {/* Vòng tròn thể hiện độ chính xác */}
             <Circle
               center={[displayLat, displayLng]}
               radius={displayAccuracy ?? 30}
@@ -301,31 +362,42 @@ export default function MapView() {
           </>
         )}
 
-        {/* POI Markers */}
-        {pois
-          .filter((poi) => poi.status)
-          .map((poi) => (
-            <Marker
-              key={poi.id}
-              position={[poi.latitude, poi.longitude]}
-            >
-              <Popup>
-                <div className="min-w-50">
-                  <h3 className="font-semibold text-base">
-                    {getPOIName(poi.id)}
-                  </h3>
-                  {getPOIDescription(poi.id) && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {getPOIDescription(poi.id)}
-                    </p>
-                  )}
-                  <span className="inline-block mt-2 px-2 py-0.5 text-xs bg-muted rounded">
-                    {poi.category}
-                  </span>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
+        {/* Hiển thị các điểm POI (Quán ăn) */}
+        {pois.filter(p => p.status).map((poi) => (
+          <Marker key={poi.id} position={[poi.latitude, poi.longitude]}>
+            <Popup>
+              <div className="min-w-[200px] p-1">
+                {poi.thumbnail_url && (
+                  <img 
+                    src={poi.thumbnail_url} 
+                    alt={poi.name} 
+                    className="w-full h-24 object-cover rounded-md mb-2 shadow-sm"
+                  />
+                )}
+                <h3 className="font-bold text-base text-primary leading-tight">
+                  {poi.name}
+                </h3>
+                <span className="inline-block bg-muted text-[10px] px-2 py-0.5 rounded-full mt-1 mb-2 font-semibold">
+                  {poi.category}
+                </span>
+                <p className="text-sm text-gray-600 line-clamp-3 leading-snug">
+                  {poi.description || "Chưa có thông tin thuyết minh cho địa điểm này."}
+                </p>
+                
+                {/* Chỉ báo đang phát thuyết minh */}
+                {activePoiId === poi.id && (
+                  <div className="mt-3 flex items-center gap-2 bg-green-50 text-green-700 p-2 rounded-md text-xs font-bold animate-bounce">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    </span>
+                    Đang thuyết minh tự động...
+                  </div>
+                )}
+              </div>
+            </Popup>
+          </Marker>
+        ))}
       </MapContainer>
     </div>
   );

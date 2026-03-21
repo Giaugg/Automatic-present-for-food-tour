@@ -1,134 +1,90 @@
-const bcrypt = require('bcrypt');
 const pool = require('../config/db');
+const bcrypt = require('bcrypt');
 
-const seedData = async () => {
-  const passwordHash = await bcrypt.hash("123456", 10);
+const seed = async () => {
   const client = await pool.connect();
-  
   try {
     await client.query('BEGIN');
 
-    // Xóa dữ liệu cũ theo thứ tự phụ thuộc khóa ngoại
-    await client.query('DELETE FROM tracking_logs');
-    await client.query('DELETE FROM reviews');
-    await client.query('DELETE FROM tour_items');
-    await client.query('DELETE FROM tours');
-    await client.query('DELETE FROM poi_images');
-    await client.query('DELETE FROM poi_translations');
-    await client.query('DELETE FROM pois');
-    await client.query('DELETE FROM users');
-    
-    console.log('🗑️  Đã xóa dữ liệu cũ');
+    // Mật khẩu hash của chuỗi "123456"
+    const hashedPW = await bcrypt.hash('123456', 10);
 
-    // 1. TẠO USER
-    const adminResult = await client.query(`
-      INSERT INTO users (username, email, password_hash, role)
-      VALUES ('admin_system', 'admin@vinhkhanh.com', '${passwordHash}', 'admin')
-      RETURNING id
+    console.log('--- Đang tạo dữ liệu người dùng ---');
+    const users = [
+      { username: 'admin_sys', email: 'admin@foodtour.com', role: 'admin', name: 'Quản trị viên', balance: 1000000 },
+      { username: 'chu_quan_q4', email: 'owner@foodtour.com', role: 'owner', name: 'Chủ quán Vĩnh Khánh', balance: 0 },
+      { username: 'traveler_01', email: 'user@foodtour.com', role: 'visitor', name: 'Nguyễn Văn Du Khách', balance: 200000 }
+    ];
+
+    const userMap = {};
+    for (const u of users) {
+      const res = await client.query(`
+        INSERT INTO users (username, email, password_hash, role, full_name, balance)
+        VALUES ($1, $2, $3, $4, $5, $6::DECIMAL) 
+        ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name
+        RETURNING id, role;
+      `, [u.username, u.email, hashedPW, u.role, u.name, u.balance]);
+      userMap[res.rows[0].role] = res.rows[0].id;
+    }
+
+    console.log('--- Đang tạo danh sách địa điểm (POIs) ---');
+    const poiData = [
+      { name: "Ốc Oanh", lat: 10.760829, lng: 106.703245, cat: "Hải sản", desc: "Quán ốc hương trứng muối huyền thoại." },
+      { name: "Sushi Ko", lat: 10.759500, lng: 106.704100, cat: "Đồ Nhật", desc: "Sushi đường phố chất lượng chuẩn nhà hàng." },
+      { name: "Bánh Mì Huỳnh Hoa", lat: 10.771200, lng: 106.691200, cat: "Bánh mì", desc: "Ổ bánh mì đầy đặn bậc nhất Sài Gòn." },
+      { name: "Phở Hòa Pasteur", lat: 10.787600, lng: 106.691700, cat: "Phở", desc: "Hương vị phở truyền thống lâu đời." },
+      { name: "Cơm Tấm Bãi Rác", lat: 10.762100, lng: 106.702100, cat: "Cơm tấm", desc: "Món cơm tấm huyền thoại của Quận 4." }
+    ];
+
+    const poiIds = [];
+    for (const p of poiData) {
+      // SỬA LỖI TẠI ĐÂY: Thêm ::UUID, ::FLOAT để ép kiểu rõ ràng
+      const res = await client.query(`
+        INSERT INTO pois (owner_id, latitude, longitude, trigger_radius, category, thumbnail_url)
+        VALUES ($1::UUID, $2::FLOAT, $3::FLOAT, $4::INT, $5::VARCHAR, $6::TEXT) 
+        RETURNING id;
+      `, [userMap['admin'], p.lat, p.lng, 25, p.cat, 'https://placehold.co/600x400?text=Food']);
+      
+      const poiId = res.rows[0].id;
+      poiIds.push(poiId);
+
+      await client.query(`
+        INSERT INTO poi_translations (poi_id, language_code, name, description, audio_url)
+        VALUES ($1::UUID, $2::VARCHAR, $3::VARCHAR, $4::TEXT, $5::TEXT);
+      `, [poiId, 'vi', p.name, p.desc, 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3']);
+    }
+
+    console.log('--- Đang tạo Tour mẫu ---');
+    const tourRes = await client.query(`
+      INSERT INTO tours (price, is_active) 
+      VALUES (150000::DECIMAL, true) 
+      RETURNING id;
     `);
-    const adminId = adminResult.rows[0].id;
-
-    const ownerResult = await client.query(`
-      INSERT INTO users (username, email, password_hash, role)
-      VALUES ('chuquan_ocoanh', 'oanh@gmail.com', '${passwordHash}', 'owner')
-      RETURNING id
-    `);
-    const ownerId = ownerResult.rows[0].id;
-
-    const visitorResult = await client.query(`
-      INSERT INTO users (username, email, password_hash, role)
-      VALUES ('john_traveler', 'john@example.com', '${passwordHash}', 'visitor')
-      RETURNING id
-    `);
-    const visitorId = visitorResult.rows[0].id;
-
-    // 2. TẠO POI
-    const poi1Result = await client.query(`
-      INSERT INTO pois (owner_id, latitude, longitude, trigger_radius, thumbnail_url, category)
-      VALUES ($1, 10.760829, 106.703245, 25, 'https://example.com/images/ocoanh_thumb.jpg', 'Hải sản')
-      RETURNING id
-    `, [ownerId]);
-    const poi1Id = poi1Result.rows[0].id;
-
-    const poi2Result = await client.query(`
-      INSERT INTO pois (owner_id, latitude, longitude, trigger_radius, thumbnail_url, category)
-      VALUES ($1, 10.759500, 106.704100, 20, 'https://example.com/images/sushiko_thumb.jpg', 'Đồ Nhật')
-      RETURNING id
-    `, [ownerId]);
-    const poi2Id = poi2Result.rows[0].id;
-
-    // 3. TẠO TRANSLATIONS
-    await client.query(`
-      INSERT INTO poi_translations (poi_id, language_code, name, description, audio_url, audio_duration_seconds, audio_size_bytes)
-      VALUES ($1, 'vi', 'Ốc Oanh - Đặc sản Vĩnh Khánh', 'Quán ốc nổi tiếng nhất khu phố với món ốc hương rang muối ớt trứ danh.', 'https://storage.cloud.com/audio/ocoanh_vi.m4a', 120, 1048576)
-    `, [poi1Id]);
+    const tourId = tourRes.rows[0].id;
 
     await client.query(`
-      INSERT INTO poi_translations (poi_id, language_code, name, description, audio_url, audio_duration_seconds, audio_size_bytes)
-      VALUES ($1, 'en', 'Oc Oanh Seafood', 'The most famous snail restaurant in the street.', 'https://storage.cloud.com/audio/ocoanh_en.m4a', 120, 1024000)
-    `, [poi1Id]);
+      INSERT INTO tour_translations (tour_id, language_code, title, summary)
+      VALUES ($1::UUID, 'vi', 'Food Tour Vĩnh Khánh Q4', 'Hành trình khám phá các món ăn đường phố nổi tiếng.');
+    `, [tourId]);
 
-    await client.query(`
-      INSERT INTO poi_translations (poi_id, language_code, name, description, audio_url)
-      VALUES ($1, 'vi', 'Sushi Ko', 'Sushi đường phố giá rẻ nhưng chất lượng chuẩn Nhật Bản.', 'https://audio.com/sushiko_vi.m4a')
-    `, [poi2Id]);
-
-    await client.query(`
-      INSERT INTO poi_translations (poi_id, language_code, name, description, audio_url)
-      VALUES ($1, 'en', 'Sushi Ko Street Food', 'Affordable street sushi with high quality.', 'https://audio.com/sushiko_en.m4a')
-    `, [poi2Id]);
-
-    // 4. TẠO IMAGES
-    await client.query(`
-      INSERT INTO poi_images (poi_id, thumbnail_url, full_image_url, caption)
-      VALUES 
-        ($1, 'thumb_oc1.webp', 'full_oc1.jpg', 'Món ốc hương nướng'),
-        ($1, 'thumb_oc2.webp', 'full_oc2.jpg', 'Không gian quán buổi tối')
-    `, [poi1Id]);
-
-    // 5. TẠO TOUR
-    const tourResult = await client.query(`
-      INSERT INTO tours (name, description, thumbnail_url, total_duration_minutes)
-      VALUES (
-        '{"vi": "Food Tour No Bụng", "en": "Full Belly Food Tour"}'::jsonb,
-        '{"vi": "Khám phá 2 quán ngon nhất từ đầu đường đến cuối đường", "en": "Explore top 2 best spots"}'::jsonb,
-        'https://img.com/tour_banner.jpg',
-        120
-      )
-      RETURNING id
-    `);
-    const tourId = tourResult.rows[0].id;
-
-    await client.query(`
-      INSERT INTO tour_items (tour_id, poi_id, step_order) VALUES ($1, $2, 1)
-    `, [tourId, poi1Id]);
-
-    await client.query(`
-      INSERT INTO tour_items (tour_id, poi_id, step_order) VALUES ($1, $2, 2)
-    `, [tourId, poi2Id]);
-
-    // 6. TẠO REVIEW & LOGS
-    await client.query(`
-      INSERT INTO reviews (poi_id, user_id, rating, comment)
-      VALUES ($1, $2, 5, 'Ốc rất ngon, phục vụ nhanh!')
-    `, [poi1Id, visitorId]);
-
-    await client.query(`
-      INSERT INTO tracking_logs (user_id, poi_id, event_type, language_code, device_info)
-      VALUES ($1, $2, 'PLAY_AUDIO', 'en', 'iPhone 14 Pro Max')
-    `, [visitorId, poi1Id]);
+    // Liên kết POI vào Tour
+    for (let i = 0; i < 3; i++) {
+      await client.query(`
+        INSERT INTO tour_items (tour_id, poi_id, step_order)
+        VALUES ($1::UUID, $2::UUID, $3::INT);
+      `, [tourId, poiIds[i], i + 1]);
+    }
 
     await client.query('COMMIT');
-    console.log('✅ Seed data thành công!');
-
+    console.log('✅ Seed dữ liệu thành công!');
+    
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('❌ Lỗi seed data:', err.message);
-    throw err;
+    console.error('❌ Seed thất bại:', err.message);
   } finally {
     client.release();
-    await pool.end();
+    process.exit();
   }
 };
 
-seedData();
+seed();
