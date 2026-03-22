@@ -3,7 +3,7 @@
 - [ ] role: admin, khach, chu quan
 - [ ] user: 
 ## backend
-- [ ] nodeJS - websocket
+- [ ] nodeJS
 ## frontend
 - [ ] figmaAI
 - [ ] nextJS-tailwindCSS
@@ -77,12 +77,12 @@
   - [x] DB: Nang cap DB (them cac thuoc tinh moi)
   - [x] BE: Nang cap BE (them EndPoint, update middleware)
   - [x] FE: Hoan Thien FE
+  - [ ] Phat giong doc
 * cac task con lai
   - [ ] Add point: add vi tri bang cach tick tren gg maps
   - [ ] Update quan ly tours: show + chinh sua POI tren tour
+  - [ ] Nang cap da ngon ngu
+  - [ ] Mo phong di chuyen tren map
   - [ ] Full chuc nang thong ke: doanh thu, so lan ghe',...
   - [ ] Full chuc nang thanh toan
   - [ ] Thanh toan nhanh chong bang tien trong tai khoan
-  - [ ] Nang cap da ngon ngu
-  - [ ] Mo phong di chuyen tren map
-  - [ ] Phat giong doc

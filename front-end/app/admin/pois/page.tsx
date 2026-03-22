@@ -31,10 +31,21 @@ export default function AdminPOIManagement() {
 
   const fetchPOIs = async () => {
     try {
-      const res = await poiApi.getAll("vi");
-      setPois(res.data);
-    } catch (err) {
-      toast.error("Không thể tải danh sách địa điểm");
+      const { data: list } = await poiApi.getAll("vi");
+      const fullData = await Promise.all(
+        list.map(async (p: any) => {
+          try {
+            const { data: details } = await poiApi.getDetails(p.id);
+            return { ...p, all_translations: details.translations };
+          } catch {
+            return p;
+          }
+        })
+      );
+      setPois(fullData);
+      console.log("Fetched POIs:", fullData);
+    } catch {
+      toast.error("Lỗi tải danh sách địa điểm");
     } finally {
       setLoading(false);
     }

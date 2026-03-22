@@ -46,3 +46,7 @@ export interface CreatePOIDTO {
   owner_id?: string;
   translations: POITranslation[];
 }
+
+export interface POIExtended extends POIWithTranslation {
+  all_translations?: POITranslation[];
+}

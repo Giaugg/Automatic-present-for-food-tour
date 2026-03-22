@@ -179,3 +179,20 @@
     line-height: 1.5;
   }
 }
+
+/* Đảm bảo bản đồ luôn chiếm đủ không gian */
+.leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+  background-color: var(--muted); /* Dùng biến từ theme của bạn */
+}
+
+/* Ép chấm xanh luôn nằm trên cùng của Layer bản đồ */
+.user-marker-top {
+  z-index: 9999 !important;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
