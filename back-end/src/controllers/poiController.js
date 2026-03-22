@@ -1,200 +1,327 @@
-const pool = require('../config/db');
+const pool = require("../config/db");
+const path = require("path");
+const fs = require("fs");
+const translationService = require("../services/translationService");
+const audioService = require("../services/audioService");
 
-// --- 1. READ ALL (Lấy danh sách POI kèm bản dịch theo ngôn ngữ) ---
-exports.getAllPOIs = async (req, res) => {
-    // Mặc định lấy tiếng Việt ('vi')
-    const { lang = 'vi' } = req.query; 
-    
-    try {
-        const result = await pool.query(`
-            SELECT 
-                p.id, 
-                p.owner_id, 
-                p.latitude, 
-                p.longitude, 
-                p.trigger_radius, 
-                p.thumbnail_url, 
-                p.category, 
-                p.status, 
-                p.updated_at,
-                pt.name, 
-                pt.description, 
-                pt.audio_url,
-                pt.audio_duration_seconds
-            FROM pois p
-            LEFT JOIN poi_translations pt ON p.id = pt.poi_id AND pt.language_code = $1
-            WHERE p.status = TRUE
-            ORDER BY p.updated_at DESC`, 
-            [lang]
-        );
-        
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: "Lỗi lấy danh sách địa điểm: " + err.message });
-    }
-};
+const poiController = {
+    // 1. GET ALL: Lấy danh sách POI kèm bản dịch theo ngôn ngữ
+    getAll: async (req, res) => {
+        try {
+            const langCode = req.query.lang || "vi-VN";
 
-// --- 2. GET DETAILS (Chi tiết POI, tất cả ngôn ngữ và hình ảnh) ---
-exports.getPOIDetails = async (req, res) => {
-    const { id } = req.params;
-    
-    try {
-        // 1. Lấy thông tin gốc từ bảng pois
-        const poiResult = await pool.query('SELECT * FROM pois WHERE id = $1::UUID', [id]);
-        
-        if (poiResult.rows.length === 0) {
-            return res.status(404).json({ message: "Không tìm thấy địa điểm này" });
+            const query = `
+                SELECT 
+                    p.id, p.latitude, p.longitude, p.category, p.thumbnail_url,
+                    pt.name, pt.description, pt.audio_url
+                FROM pois p
+                LEFT JOIN languages l ON l.code = $1
+                LEFT JOIN poi_translations pt 
+                    ON pt.poi_id = p.id AND pt.language_id = l.id
+                ORDER BY p.created_at DESC
+            `;
+
+            const result = await pool.query(query, [langCode]);
+            res.json(result.rows);
+        } catch (err) {
+            res.status(500).json({ error: err.message });
         }
+    },
 
-        // 2. Lấy tất cả các bản dịch đa ngôn ngữ
-        const translations = await pool.query(
-            'SELECT language_code, name, description, audio_url, audio_duration_seconds FROM poi_translations WHERE poi_id = $1::UUID', 
-            [id]
-        );
-
-        // 3. Lấy danh sách hình ảnh (poi_images)
-        const images = await pool.query(
-            'SELECT id, full_image_url, thumbnail_url, caption, display_order FROM poi_images WHERE poi_id = $1::UUID ORDER BY display_order ASC', 
-            [id]
-        );
-
-        // Gộp dữ liệu trả về theo cấu trúc POIDetail Interface
-        const poiData = {
-            ...poiResult.rows[0],
-            translations: translations.rows,
-            images: images.rows
-        };
-
-        res.json(poiData);
-    } catch (err) {
-        res.status(500).json({ error: "Lỗi lấy chi tiết địa điểm: " + err.message });
-    }
-};
-
-// --- 3. CREATE (Tạo POI kèm bản dịch) ---
-exports.createPOI = async (req, res) => {
-    const client = await pool.connect();
-    const { 
-        latitude, 
-        longitude, 
-        trigger_radius, 
-        category, 
-        thumbnail_url, 
-        owner_id, 
-        translations 
-    } = req.body;
-
-    try {
-        await client.query('BEGIN');
-
-        // 1. Chèn vào bảng POIs (Ép kiểu dữ liệu để an toàn)
-        const poiResult = await client.query(`
-            INSERT INTO pois (owner_id, latitude, longitude, trigger_radius, category, thumbnail_url)
-            VALUES ($1, $2::FLOAT, $3::FLOAT, $4::INT, $5, $6) 
-            RETURNING id`,
-            [owner_id || null, latitude, longitude, trigger_radius || 25, category, thumbnail_url]
-        );
-        const poiId = poiResult.rows[0].id;
-
-        // 2. Chèn các bản dịch đa ngôn ngữ
-        if (translations && Array.isArray(translations)) {
-            for (const t of translations) {
-                await client.query(`
-                    INSERT INTO poi_translations (poi_id, language_code, name, description, audio_url)
-                    VALUES ($1::UUID, $2, $3, $4, $5)`,
-                    [poiId, t.language_code, t.name, t.description, t.audio_url]
-                );
+    getDetails: async (req, res) => {
+        const { id } = req.params;
+        try {
+            // Lấy thông tin POI gốc
+            const poiRes = await pool.query(`SELECT * FROM pois WHERE id = $1`, [id]);
+            if (poiRes.rows.length === 0) {
+                return res.status(404).json({ success: false, message: "POI không tồn tại" });
             }
+
+            // Lấy tất cả bản dịch của POI này
+            const transRes = await pool.query(`
+                SELECT pt.*, l.code as language_code 
+                FROM poi_translations pt
+                JOIN languages l ON pt.language_id = l.id
+                WHERE pt.poi_id = $1
+            `, [id]);
+
+            const poiData = poiRes.rows[0];
+            poiData.translations = transRes.rows;
+
+            res.json({ success: true, data: poiData });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    },
+
+    // 2. GET NEARBY: Tìm các POI trong bán kính (m) xung quanh tọa độ user
+    getNearby: async (req, res) => {
+        const { lat, lng, radius = 500, lang = "vi-VN" } = req.query;
+
+        if (!lat || !lng) {
+            return res.status(400).json({ error: "Thiếu tọa độ lat/lng" });
         }
 
-        await client.query('COMMIT');
-        res.status(201).json({ 
-            message: "Tạo địa điểm thành công", 
-            id: poiId 
-        });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        res.status(500).json({ error: "Lỗi tạo địa điểm: " + err.message });
-    } finally {
-        client.release();
-    }
-};
+        try {
+            // Công thức Haversine tính khoảng cách (mét)
+            const query = `
+                SELECT p.*, pt.name, pt.description, pt.audio_url,
+                (6371000 * acos(
+                    cos(radians($1)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians($2)) + 
+                    sin(radians($1)) * sin(radians(p.latitude))
+                )) AS distance
+                FROM pois p
+                LEFT JOIN languages l ON l.code = $4
+                LEFT JOIN poi_translations pt ON pt.poi_id = p.id AND pt.language_id = l.id
+                WHERE (
+                    6371000 * acos(
+                        cos(radians($1)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians($2)) + 
+                        sin(radians($1)) * sin(radians(p.latitude))
+                    )
+                ) <= $3
+                ORDER BY distance ASC
+            `;
+            const result = await pool.query(query, [lat, lng, radius, lang]);
+            res.json(result.rows);
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    },
 
-// --- 4. UPDATE (Cập nhật POI & Upsert bản dịch) ---
-exports.updatePOI = async (req, res) => {
+    getById: async (req, res) => {
+        const { id } = req.params;
+        const { lang } = req.query; // Lấy langCode từ query string: ?lang=en-US
+
+        try {
+            // Sử dụng COALESCE và LEFT JOIN để lấy thông tin POI kèm bản dịch trong 1 câu query duy nhất
+            const query = `
+                SELECT 
+                    p.*, 
+                    pt.name, 
+                    pt.description, 
+                    pt.audio_url,
+                    l.code as language_code
+                FROM pois p
+                LEFT JOIN poi_translations pt ON p.id = pt.poi_id
+                LEFT JOIN languages l ON pt.language_id = l.id
+                WHERE p.id = $1 AND (l.code = $2 OR l.code = 'vi-VN')
+                ORDER BY (l.code = $2) DESC -- Ưu tiên ngôn ngữ được chọn lên đầu
+                LIMIT 1;
+            `;
+
+            const result = await pool.query(query, [id, lang || 'vi-VN']);
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ message: "Không tìm thấy địa điểm hoặc bản dịch phù hợp" });
+            }
+
+            res.json(result.rows[0]);
+        } catch (err) {
+            console.error("Error in getById:", err.message);
+            res.status(500).json({ error: err.message });
+        }
+    },
+    // 4. CREATE: Tạo POI mới
+    create: async (req, res) => {
+    const { latitude, longitude, category, translations, owner_id } = req.body;
     const client = await pool.connect();
-    const { id } = req.params;
-    const { 
-        latitude, 
-        longitude, 
-        trigger_radius, 
-        category, 
-        status, 
-        thumbnail_url, 
-        translations 
-    } = req.body;
-
     try {
-        await client.query('BEGIN');
+        await client.query("BEGIN");
 
-        // 1. Cập nhật thông tin cơ bản
-        const updateResult = await client.query(`
-            UPDATE pois 
-            SET latitude = $1::FLOAT, 
-                longitude = $2::FLOAT, 
-                trigger_radius = $3::INT, 
-                category = $4, 
-                status = $5, 
-                thumbnail_url = $6,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = $7::UUID`,
-            [latitude, longitude, trigger_radius, category, status, thumbnail_url, id]
-        );
+        // 1. Insert POI gốc
+        const poiRes = await client.query(`
+            INSERT INTO pois (latitude, longitude, category, owner_id)
+            VALUES ($1, $2, $3, $4) RETURNING id
+        `, [latitude, longitude, category, owner_id]);
+        const poiId = poiRes.rows[0].id;
 
-        if (updateResult.rowCount === 0) {
-            await client.query('ROLLBACK');
-            return res.status(404).json({ message: "Địa điểm không tồn tại" });
+        // 2. Lấy bản dịch tiếng Việt làm gốc
+        const viTrans = translations.find(t => t.language_code === 'vi-VN');
+        
+        // 3. Lấy danh sách tất cả ngôn ngữ đang active (trừ tiếng Việt)
+        const langRes = await client.query("SELECT id, code FROM languages WHERE code != 'vi-VN'");
+        
+        // 4. Lưu bản dịch tiếng Việt trước
+        const viLang = await client.query("SELECT id FROM languages WHERE code = 'vi-VN'");
+        await client.query(`
+            INSERT INTO poi_translations (poi_id, language_id, name, description)
+            VALUES ($1, $2, $3, $4)
+        `, [poiId, viLang.rows[0].id, viTrans.name, viTrans.description]);
+
+        // 5. Tự động dịch và lưu các ngôn ngữ còn lại
+        for (const langRow of langRes.rows) {
+            const translated = await translationService.translatePoi(viTrans, langRow.code);
+            await client.query(`
+                INSERT INTO poi_translations (poi_id, language_id, name, description)
+                VALUES ($1, $2, $3, $4)
+            `, [poiId, langRow.id, translated.name, translated.description]);
         }
 
-        // 2. Cập nhật bản dịch sử dụng ON CONFLICT (Upsert)
-        if (translations && Array.isArray(translations)) {
-            for (const t of translations) {
-                await client.query(`
-                    INSERT INTO poi_translations (poi_id, language_code, name, description, audio_url)
-                    VALUES ($1::UUID, $2, $3, $4, $5)
-                    ON CONFLICT (poi_id, language_code) 
+        await client.query("COMMIT");
+        res.status(201).json({ success: true, id: poiId });
+    } catch (err) {
+        await client.query("ROLLBACK");
+        res.status(500).json({ error: err.message });
+    } finally { client.release(); }
+},
+
+    // 5. UPDATE: Cập nhật POI và bản dịch (Sử dụng UPSERT)
+    update: async (req, res) => {
+        const { id } = req.params;
+        const { latitude, longitude, category, thumbnail_url, translations } = req.body;
+        const client = await pool.connect();
+        try {
+            await client.query("BEGIN");
+            await client.query(`
+                UPDATE pois SET latitude=$1, longitude=$2, category=$3, thumbnail_url=$4, updated_at=NOW() WHERE id=$5
+            `, [latitude, longitude, category, thumbnail_url, id]);
+
+            if (translations) {
+                for (const t of translations) {
+                    const lang = await client.query(`SELECT id FROM languages WHERE code = $1`, [t.language_code]);
+                    if (lang.rows.length > 0) {
+                        await client.query(`
+                            INSERT INTO poi_translations (poi_id, language_id, name, description)
+                            VALUES ($1, $2, $3, $4)
+                            ON CONFLICT (poi_id, language_id) DO UPDATE SET name=EXCLUDED.name, description=EXCLUDED.description
+                        `, [id, lang.rows[0].id, t.name, t.description]);
+                    }
+                }
+            }
+            await client.query("COMMIT");
+            res.json({ message: "Updated" });
+        } catch (err) {
+            await client.query("ROLLBACK");
+            res.status(500).json({ error: err.message });
+        } finally { client.release(); }
+    },
+
+    // 6. DELETE: Xóa POI
+    delete: async (req, res) => {
+        const { id } = req.params;
+        try {
+            const result = await pool.query(`DELETE FROM pois WHERE id = $1 RETURNING id`, [id]);
+            if (!result.rows.length) return res.status(404).json({ message: "POI not found" });
+            res.json({ message: "Deleted" });
+        } catch (err) { res.status(500).json({ error: err.message }); }
+    },
+
+    // 7. SYNC AUDIO: Chỉ tạo audio cho những bản dịch còn thiếu
+    syncAudioById: async (req, res) => {
+        const { id } = req.params;
+        const client = await pool.connect();
+        try {
+            const missing = await client.query(`
+                SELECT pt.id, pt.description, l.code as lang_code
+                FROM poi_translations pt
+                JOIN languages l ON pt.language_id = l.id
+                WHERE pt.poi_id = $1 AND (pt.audio_url IS NULL OR pt.audio_url = '')
+            `, [id]);
+
+            for (const row of missing.rows) {
+                if (!row.description) continue;
+                const path = await audioService.generateAndSave(row.description, row.lang_code, id);
+                await client.query("UPDATE poi_translations SET audio_url = $1 WHERE id = $2", [path, row.id]);
+            }
+            res.json({ success: true, count: missing.rows.length });
+        } catch (err) { res.status(500).json({ error: err.message }); }
+        finally { client.release(); }
+    },
+
+    // 8. REBUILD AUDIO: Xóa cũ tạo lại toàn bộ cho POI này
+    rebuildAudioById: async (req, res) => {
+        const { id } = req.params;
+        const client = await pool.connect();
+        try {
+            await client.query("BEGIN");
+            const rows = await client.query(`
+                SELECT pt.id, pt.audio_url, pt.description, l.code as lang_code
+                FROM poi_translations pt 
+                JOIN languages l ON pt.language_id = l.id 
+                WHERE pt.poi_id = $1
+            `, [id]);
+
+            for (const row of rows.rows) {
+                if (row.audio_url) {
+                    // SỬA: Dùng 'path.resolve' (vì bạn require là path)
+                    const fullPath = path.resolve(__dirname, "../../public", row.audio_url.replace(/^\//, ""));
+                    if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+                }
+                
+                if (row.description) {
+                    // SỬA: Đổi tên biến từ 'path' thành 'newAudioPath' để tránh trùng với module path
+                    const newAudioPath = await audioService.generateAndSave(row.description, row.lang_code, id);
+                    await client.query("UPDATE poi_translations SET audio_url = $1 WHERE id = $2", [newAudioPath, row.id]);
+                }
+            }
+            await client.query("COMMIT");
+            res.json({ success: true });
+        } catch (err) {
+            await client.query("ROLLBACK");
+            res.status(500).json({ error: err.message });
+        } finally { client.release(); }
+    },
+
+    // 9. TRANSLATE FULL: Tự động dịch sang tất cả ngôn ngữ active còn thiếu
+    translateFull: async (req, res) => {
+        const { id } = req.params;
+        const client = await pool.connect();
+        
+        try {
+            await client.query("BEGIN");
+
+            // 1. Lấy bản dịch gốc (Tiếng Việt) để làm căn cứ dịch
+            const originRes = await client.query(`
+                SELECT pt.* FROM poi_translations pt
+                JOIN languages l ON pt.language_id = l.id
+                WHERE pt.poi_id = $1 AND l.code = 'vi-VN'
+            `, [id]);
+
+            if (originRes.rows.length === 0) {
+                return res.status(400).json({ error: "Phải có bản dịch tiếng Việt trước khi dịch tự động." });
+            }
+            const viTrans = originRes.rows[0];
+
+            // 2. Lấy danh sách tất cả ngôn ngữ đang active (trừ tiếng Việt)
+            const langRes = await client.query("SELECT id, code FROM languages WHERE is_active = TRUE AND code != 'vi-VN'");
+            
+            const results = [];
+
+            // 3. Vòng lặp dịch và Upsert (Insert hoặc Update nếu đã tồn tại)
+            for (const lang of langRes.rows) {
+                // Gọi service dịch (Google Translate API / LibreTranslate ...)
+                const translated = await translationService.translatePoi(viTrans, lang.code);
+
+                const upsertQuery = `
+                    INSERT INTO poi_translations (poi_id, language_id, name, description)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (poi_id, language_id) 
                     DO UPDATE SET 
                         name = EXCLUDED.name, 
-                        description = EXCLUDED.description, 
-                        audio_url = EXCLUDED.audio_url`,
-                    [id, t.language_code, t.name, t.description, t.audio_url]
-                );
+                        description = EXCLUDED.description
+                    RETURNING *;
+                `;
+                
+                const saved = await client.query(upsertQuery, [
+                    id, 
+                    lang.id, 
+                    translated.name, 
+                    translated.description
+                ]);
+                results.push(saved.rows[0]);
             }
-        }
 
-        await client.query('COMMIT');
-        res.json({ message: "Cập nhật địa điểm thành công" });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        res.status(500).json({ error: "Lỗi cập nhật: " + err.message });
-    } finally {
-        client.release();
-    }
+            await client.query("COMMIT");
+            res.json({ success: true, translated_count: results.length });
+
+        } catch (err) {
+            await client.query("ROLLBACK");
+            console.error("Translation Error:", err);
+            res.status(500).json({ error: err.message });
+        } finally {
+            client.release();
+        }
+    },
 };
 
-// --- 5. DELETE (Xóa POI) ---
-exports.deletePOI = async (req, res) => {
-    const { id } = req.params;
-    try {
-        // Cascade delete trong DB sẽ tự dọn dẹp các bảng con (translations, images, reviews)
-        const result = await pool.query('DELETE FROM pois WHERE id = $1::UUID', [id]);
-        
-        if (result.rowCount === 0) {
-            return res.status(404).json({ message: "Địa điểm không tồn tại" });
-        }
-        
-        res.json({ message: "Đã xóa địa điểm thành công" });
-    } catch (err) {
-        res.status(500).json({ error: "Lỗi khi xóa: " + err.message });
-    }
-};
+module.exports = poiController;

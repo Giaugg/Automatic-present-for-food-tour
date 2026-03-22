@@ -13,7 +13,6 @@ router.get('/', tourController.getAllTours);
 // Lấy chi tiết 1 tour cụ thể kèm lộ trình POIs (Ví dụ: /api/tours/uuid-cua-tour?lang=vi)
 router.get('/:id', tourController.getTourDetails);
 
-
 // --- 2. PROTECTED ROUTES (Chỉ Admin mới có quyền thay đổi dữ liệu Tour) ---
 
 // Tạo một tour mới kèm bản dịch đa ngôn ngữ

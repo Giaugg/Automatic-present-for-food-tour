@@ -2,8 +2,9 @@ const express = require('express');
 const pool = require('./config/db'); 
 const cors = require('cors');
 require('dotenv').config();
-
+const path = require('path');
 const app = express();
+const audioService = require('./services/audioService'); // Đường dẫn tới file trên
 
 // --- 1. MIDDLEWARES HỆ THỐNG ---
 
@@ -55,12 +56,13 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/pois', require('./routes/poiRoutes'));
 app.use('/api/tours', require('./routes/tourRoutes'));
+app.use('/api/languages', require('./routes/languageRoutes'));
 
 // Route Quản trị (Dành cho trang Quản lý hồ sơ/tài khoản)
 // Lưu ý: File này chứa các chức năng adminTopUp, getAllUsers...
 app.use('/api/admin/users', require('./routes/userRoutes')); 
 
-// --- 4. XỬ LÝ LỖI (ERROR HANDLING) ---
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Xử lý Route không tồn tại (404)
 app.use((req, res) => {
@@ -81,9 +83,11 @@ app.use((err, req, res, next) => {
 const port = process.env.PORT || 5000;
 
 // Lắng nghe trên 0.0.0.0 để có thể truy cập từ thiết bị khác trong cùng mạng LAN (để test mobile app)
-app.listen(port, '0.0.0.0', () => {
+app.listen(port, '0.0.0.0', async () => {
     console.log('--------------------------------------------------');
     console.log(`🚀 Server đang chạy tại: http://localhost:${port}`);
     console.log(`📡 API Health Check: http://localhost:${port}/api/health`);
+    // await audioService.runTest();
+    // http://localhost:5000/uploads/audio/poi_test_en_en_1774191115536.mp3
     console.log('--------------------------------------------------');
 });

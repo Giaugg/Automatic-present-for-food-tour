@@ -1,0 +1,1 @@
+router.get('/system/check-audio', authMiddleware, authorize('admin'), systemController.checkAudioFiles);

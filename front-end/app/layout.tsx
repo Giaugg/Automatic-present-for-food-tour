@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Đạt/Đức/Giàu thuyết minh đồ ăn",
+  title: "Thuyết minh đồ ăn",
   description: "10 điểm ha",
 };
 

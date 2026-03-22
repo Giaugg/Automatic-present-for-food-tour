@@ -2,40 +2,48 @@ const express = require('express');
 const router = express.Router();
 const poiController = require('../controllers/poiController');
 
-// Import middleware hợp nhất
-const { authMiddleware, authorize } = require('../middlewares/authMiddleware');
+// ================= PUBLIC ROUTES =================
 
-// --- 1. PUBLIC ROUTES (Dành cho người dùng App/Bản đồ) ---
+/**
+ * @route   GET /api/pois
+ * @desc    Lấy danh sách POI (?lang=vi-VN)
+ */
+router.get('/', poiController.getAll);
 
-// Lấy danh sách POI kèm ngôn ngữ (Ví dụ: /api/pois?lang=vi)
-router.get('/', poiController.getAllPOIs); 
+/**
+ * 🔥 QUAN TRỌNG: Lấy POI gần user
+ * @route   GET /api/pois/nearby?lat=...&lng=...&radius=100
+ */
+router.get('/nearby', poiController.getNearby);
 
-// Chi tiết 1 quán (Tất cả ngôn ngữ + danh sách ảnh poi_images)
-router.get('/:id', poiController.getPOIDetails); 
+/**
+ * @route   GET /api/pois/:id
+ * @desc    Chi tiết POI
+ */
+router.get('/:id', poiController.getById);
+
+router.get('/:id/details', poiController.getDetails);
 
 
-// --- 2. PROTECTED ROUTES (Cần đăng nhập & Phân quyền) ---
+// ================= ADMIN ROUTES =================
 
-// Thêm mới một địa điểm (Chỉ Admin hoặc Chủ quán mới được tạo)
-router.post('/', 
-    authMiddleware, 
-    authorize('admin', 'owner'), 
-    poiController.createPOI
-); 
+/**
+ * @route   POST /api/pois
+ */
+router.post('/', poiController.create);
 
-// Cập nhật thông tin địa điểm (Tọa độ, Bán kính, Bản dịch)
-router.put('/:id', 
-    authMiddleware, 
-    authorize('admin', 'owner'), 
-    poiController.updatePOI
-); 
+/**
+ * @route   PUT /api/pois/:id
+ */
+router.put('/:id', poiController.update);
 
-// Xóa địa điểm
-// Lưu ý: CASCADE trong DB sẽ tự động dọn dẹp các bảng con (poi_translations, poi_images, tour_items)
-router.delete('/:id', 
-    authMiddleware, 
-    authorize('admin'), // Thường chỉ Admin mới có quyền xóa vĩnh viễn dữ liệu
-    poiController.deletePOI
-); 
+/**
+ * @route   DELETE /api/pois/:id
+ */
+router.delete('/:id', poiController.delete);
 
+
+
+router.post('/:id/sync-audio', poiController.syncAudioById);
+router.post('/:id/rebuild-audio', poiController.rebuildAudioById);
 module.exports = router;

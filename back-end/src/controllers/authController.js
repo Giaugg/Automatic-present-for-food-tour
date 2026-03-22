@@ -80,7 +80,7 @@ exports.getMe = async (req, res) => {
     try {
         // Truy vấn đầy đủ các trường cần thiết cho Header/Profile
         const result = await pool.query(
-            `SELECT id, username, email, full_name, role, balance, points, avatar_url 
+            `SELECT id, email, full_name, role, balance, points, avatar_url 
              FROM users WHERE id = $1`,
             [req.user.id]
         );
@@ -97,6 +97,7 @@ exports.getMe = async (req, res) => {
             balance: parseFloat(user.balance)
         });
     } catch (err) {
+        console.error('Get Me Error:', err.message);
         res.status(500).json({ error: err.message });
     }
 };
