@@ -125,6 +125,7 @@ export default function AdminUserManagement() {
               <th className="p-5">Thành viên</th>
               <th className="p-5">Vai trò</th>
               <th className="p-5">Số dư</th>
+              <th className="p-5">Điểm</th>
               <th className="p-5 text-right">Thao tác</th>
             </tr>
           </thead>
@@ -137,6 +138,7 @@ export default function AdminUserManagement() {
                 </td>
                 <td className="p-5 capitalize font-medium">{u.role}</td>
                 <td className="p-5 font-bold text-emerald-600">{Number(u.balance).toLocaleString()}đ</td>
+                <td className="p-5 font-bold text-orange-600">{u.points} ⭐</td>
                 <td className="p-5 text-right space-x-2">
                   <button onClick={() => openModal(u)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">Sửa</button>
                   <button onClick={() => handleDelete(u.id)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100">Xóa</button>

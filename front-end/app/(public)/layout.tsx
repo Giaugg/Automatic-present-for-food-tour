@@ -125,12 +125,20 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               <Link href="/map" className={`text-sm font-bold transition-colors ${pathname === "/map" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
                 Bản đồ
               </Link>
-              <Link href="/tours" className={`text-sm font-bold transition-colors ${pathname === "/tours" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+              {/* <Link href="/tours" className={`text-sm font-bold transition-colors ${pathname === "/tours" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
                 Tours
-              </Link>
+              </Link> */}
               {user?.role === "admin" && (
                 <Link href="/admin" className={`text-sm font-bold transition-colors ${pathname.startsWith("/admin") ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
                   Quản trị
+                </Link>
+              )}
+              {user?.role === "owner" && (
+                <Link 
+                  href="/owner" 
+                  className={`text-sm font-bold transition-colors ${pathname.startsWith("/owner") ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Quản lý địa điểm
                 </Link>
               )}
             </div>
@@ -152,7 +160,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               </button>
               
               {!isLoadingLangs && activeLanguages.length > 0 && (
-                <div className="absolute right-0 top-full pt-2 w-44 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[1002]">
+                <div className="absolute right-0 top-full pt-2 w-60 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[1002]">
                   <div className="bg-card border border-border rounded-xl shadow-xl overflow-hidden p-1">
                     {activeLanguages.map((lang) => (
                       <button
@@ -161,7 +169,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                         className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium hover:bg-muted rounded-lg transition-colors"
                       >
                         <div className="flex items-center gap-2">
-                          <span>{getFlag(lang.code)}</span>
+                          <span>{lang.code}</span>
                           <span>{lang.name}</span>
                         </div>
                         {currentLangCode === lang.code && <Check size={14} className="text-primary" />}

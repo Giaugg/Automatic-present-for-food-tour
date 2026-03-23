@@ -18,7 +18,7 @@ app.use(cors({
             callback(new Error('Chặn bởi chính sách CORS'));
         }
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
@@ -57,6 +57,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/pois', require('./routes/poiRoutes'));
 app.use('/api/tours', require('./routes/tourRoutes'));
 app.use('/api/languages', require('./routes/languageRoutes'));
+app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 
 // Route Quản trị (Dành cho trang Quản lý hồ sơ/tài khoản)
 // Lưu ý: File này chứa các chức năng adminTopUp, getAllUsers...

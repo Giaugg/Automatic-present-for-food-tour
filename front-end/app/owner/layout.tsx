@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export default function AdminLayout({
+export default function OwnerLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -10,38 +10,20 @@ export default function AdminLayout({
       {/* Sidebar */}
       <aside className="w-64 bg-sidebar border-r border-sidebar-border p-4">
         <h2 className="text-xl font-bold mb-6 text-sidebar-foreground">
-          Admin Dashboard
+          Owner Dashboard
         </h2>
         <nav className="space-y-2">
           <Link
-            href="/admin"
+            href="/owner"
             className="block p-2 rounded-(--radius) text-sidebar-foreground hover:bg-sidebar-accent"
           >
             Dashboard
           </Link>
           <Link
-            href="/admin/profile"
-            className="block p-2 rounded-(--radius) text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            Hồ sơ
-          </Link>
-          <Link
-            href="/admin/pois"
+            href="/owner/pois"
             className="block p-2 rounded-(--radius) text-sidebar-foreground hover:bg-sidebar-accent"
           >
             Quản lý POI
-          </Link>
-          {/* <Link
-            href="/admin/tours"
-            className="block p-2 rounded-(--radius) text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            Quản lý Tours
-          </Link> */}
-          <Link
-            href="/admin/languages"
-            className="block p-2 rounded-(--radius) text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            Quản lý Ngôn ngữ
           </Link>
         </nav>
       </aside>

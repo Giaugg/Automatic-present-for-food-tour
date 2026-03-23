@@ -55,7 +55,7 @@ export const authApi = {
  */
 export const languageApi = {
   getActive: () => api.get<{ success: boolean; data: Language[] }>('/languages/active'),
-  getAdminAll: () => api.get<{ success: boolean; data: Language[] }>('/languages'),
+  getAdminAll: () => api.get<{ success: boolean; data: Language[] }>('/languages/admin/all'),
   toggleStatus: (id: string, isActive: boolean) => 
     api.patch<{ success: boolean; data: Language }>(`/languages/${id}/status`, { is_active: isActive }),
   update: (id: string, data: Partial<Language>) =>
@@ -63,6 +63,8 @@ export const languageApi = {
   // Mới thêm
   syncAudio: (id: string) => 
     api.post<{ success: boolean; data: any }>(`/languages/${id}/sync-audio`),
+  syncTranslate: (id: string) =>
+    api.post<{ success: boolean; data: any }>(`/languages/${id}/sync-translate`),
 };
 
 /**
@@ -72,6 +74,9 @@ export const poiApi = {
   // 1. Lấy danh sách cho User (mặc định tiếng Việt)
   getAll: (lang: string = 'vi-VN') => 
     api.get<POIWithTranslation[]>(`/pois`, { params: { lang } }),
+
+  getMyPOIs: () =>
+    api.get<POIWithTranslation[]>('/pois/my-pois'),
 
   // 2. Lấy chi tiết cho User (1 ngôn ngữ)
   getById: (id: string, lang: string) => 
@@ -145,6 +150,11 @@ export const systemApi = {
       missing_files: number; 
       details: any[] 
     }>('/admin/system/check-audio'),
+};
+
+export const dashboardApi = {
+  getAdminStats: () => api.get('/dashboard/admin/stats'),
+  getOwnerStats: () => api.get('/dashboard/owner/stats'),
 };
 
 

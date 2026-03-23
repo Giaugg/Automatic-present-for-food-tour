@@ -28,6 +28,31 @@ const poiController = {
         }
     },
 
+    getMyPois: async (req, res) => {
+        const userId = req.user.id; // ID lấy từ Token sau khi qua Middleware
+        
+        try {
+        // Truy vấn các POI thuộc sở hữu của user này
+        // Join thêm bảng translations để lấy tên (mặc định lấy tiếng Việt)
+        const result = await pool.query(`
+            SELECT p.*, pt.name, pt.description 
+            FROM pois p
+            LEFT JOIN poi_translations pt ON p.id = pt.poi_id
+            JOIN languages l ON pt.language_id = l.id
+            WHERE p.owner_id = $1 AND l.code = 'vi-VN'
+        `, [userId]);
+
+        res.json({
+            success: true,
+            count: result.rowCount,
+            data: result.rows
+        });
+        } catch (err) {
+        console.log('Lỗi getMyPois:', err.message);
+        res.status(500).json({ success: false, message: 'Lỗi server' });
+        }
+    },
+
     getDetails: async (req, res) => {
         const { id } = req.params;
         try {
@@ -123,47 +148,81 @@ const poiController = {
     },
     // 4. CREATE: Tạo POI mới
     create: async (req, res) => {
-    const { latitude, longitude, category, translations, owner_id } = req.body;
-    const client = await pool.connect();
-    try {
-        await client.query("BEGIN");
+        // 1. Lấy thông tin từ Body và Token
+        // Không lấy owner_id từ body để tránh việc user giả mạo ID người khác
+        const { latitude, longitude, category, translations } = req.body;
+        const userIdFromToken = req.user.id; 
+        const userRole = req.user.role;
 
-        // 1. Insert POI gốc
-        const poiRes = await client.query(`
-            INSERT INTO pois (latitude, longitude, category, owner_id)
-            VALUES ($1, $2, $3, $4) RETURNING id
-        `, [latitude, longitude, category, owner_id]);
-        const poiId = poiRes.rows[0].id;
+        const client = await pool.connect();
+        try {
+            await client.query("BEGIN");
 
-        // 2. Lấy bản dịch tiếng Việt làm gốc
-        const viTrans = translations.find(t => t.language_code === 'vi-VN');
-        
-        // 3. Lấy danh sách tất cả ngôn ngữ đang active (trừ tiếng Việt)
-        const langRes = await client.query("SELECT id, code FROM languages WHERE code != 'vi-VN'");
-        
-        // 4. Lưu bản dịch tiếng Việt trước
-        const viLang = await client.query("SELECT id FROM languages WHERE code = 'vi-VN'");
-        await client.query(`
-            INSERT INTO poi_translations (poi_id, language_id, name, description)
-            VALUES ($1, $2, $3, $4)
-        `, [poiId, viLang.rows[0].id, viTrans.name, viTrans.description]);
+            // 2. Xác định owner_id thực tế
+            // Nếu là admin và có truyền owner_id trong body thì ưu tiên (để admin tạo hộ user)
+            // Nếu là owner thông thường, bắt buộc dùng ID từ token của chính họ
+            let finalOwnerId = userIdFromToken;
+            if (userRole === 'admin' && req.body.owner_id) {
+                finalOwnerId = req.body.owner_id;
+            }
 
-        // 5. Tự động dịch và lưu các ngôn ngữ còn lại
-        for (const langRow of langRes.rows) {
-            const translated = await translationService.translatePoi(viTrans, langRow.code);
+            // 3. Insert POI gốc
+            const poiRes = await client.query(`
+                INSERT INTO pois (id, latitude, longitude, category, owner_id)
+                VALUES (uuid_generate_v4(), $1, $2, $3, $4) RETURNING id
+            `, [latitude, longitude, category, finalOwnerId]);
+            
+            const poiId = poiRes.rows[0].id;
+
+            // 4. Xử lý bản dịch tiếng Việt làm gốc
+            // Dùng ILIKE để tránh lỗi chữ hoa chữ thường 'vi-vn' vs 'vi-VN'
+            const viTrans = translations.find(t => t.language_code?.toLowerCase().startsWith('vi'));
+            if (!viTrans) {
+                throw new Error("Phải cung cấp bản dịch tiếng Việt (vi-VN) làm ngôn ngữ gốc.");
+            }
+
+            const viLangRes = await client.query("SELECT id FROM languages WHERE code ILIKE 'vi%' LIMIT 1");
+            if (viLangRes.rows.length === 0) {
+                throw new Error("Ngôn ngữ tiếng Việt chưa được cấu hình trong hệ thống.");
+            }
+            const viLangId = viLangRes.rows[0].id;
+
+            // 5. Lưu bản dịch tiếng Việt
             await client.query(`
-                INSERT INTO poi_translations (poi_id, language_id, name, description)
-                VALUES ($1, $2, $3, $4)
-            `, [poiId, langRow.id, translated.name, translated.description]);
-        }
+                INSERT INTO poi_translations (id, poi_id, language_id, name, description)
+                VALUES (uuid_generate_v4(), $1, $2, $3, $4)
+            `, [poiId, viLangId, viTrans.name, viTrans.description]);
 
-        await client.query("COMMIT");
-        res.status(201).json({ success: true, id: poiId });
-    } catch (err) {
-        await client.query("ROLLBACK");
-        res.status(500).json({ error: err.message });
-    } finally { client.release(); }
-},
+            // 6. Tự động dịch sang tất cả các ngôn ngữ đang Active khác
+            const otherLangs = await client.query(
+                "SELECT id, code FROM languages WHERE id != $1 AND is_active = true", 
+                [viLangId]
+            );
+
+            for (const lang of otherLangs.rows) {
+                try {
+                    const translated = await translationService.translatePoi(viTrans, lang.code);
+                    await client.query(`
+                        INSERT INTO poi_translations (id, poi_id, language_id, name, description)
+                        VALUES (uuid_generate_v4(), $1, $2, $3, $4)
+                    `, [poiId, lang.id, translated.name, translated.description]);
+                } catch (transErr) {
+                    console.error(`⚠️ Lỗi dịch tự động cho ngôn ngữ ${lang.code}:`, transErr.message);
+                    // Vẫn tiếp tục các ngôn ngữ khác nếu một cái lỗi
+                }
+            }
+
+            await client.query("COMMIT");
+            res.status(201).json({ success: true, id: poiId, owner_id: finalOwnerId });
+
+        } catch (err) {
+            await client.query("ROLLBACK");
+            console.error("❌ Lỗi Create POI:", err.message);
+            res.status(500).json({ success: false, error: err.message });
+        } finally { 
+            client.release(); 
+        }
+    },
 
     // 5. UPDATE: Cập nhật POI và bản dịch (Sử dụng UPSERT)
     update: async (req, res) => {

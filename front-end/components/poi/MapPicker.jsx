@@ -4,7 +4,6 @@ import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import { useState } from "react";
 
 
-
 function ClickHandler({ setPosition }) {
   useMapEvents({
     click(e) {
