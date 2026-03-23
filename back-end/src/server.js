@@ -64,6 +64,7 @@ app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/admin/users', require('./routes/userRoutes')); 
 
 app.use(express.static(path.join(__dirname, '../public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Xử lý Route không tồn tại (404)
 app.use((req, res) => {

@@ -12,6 +12,8 @@ front-end/build/
 front-end/.env*.local
 front-end/*.log
 
+back-end/src/services/service_account.json
+
 # --- General / IDE ---
 .DS_Store
 .idea/

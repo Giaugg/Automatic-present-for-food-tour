@@ -75,6 +75,7 @@ const poiController = {
 
             res.json({ success: true, data: poiData });
         } catch (err) {
+            console.log('Lỗi getDetails:', err.message);
             res.status(500).json({ error: err.message });
         }
     },
@@ -150,9 +151,30 @@ const poiController = {
     create: async (req, res) => {
         // 1. Lấy thông tin từ Body và Token
         // Không lấy owner_id từ body để tránh việc user giả mạo ID người khác
-        const { latitude, longitude, category, translations } = req.body;
-        const userIdFromToken = req.user.id; 
+        let { latitude, longitude, category, translations } = req.body;        const userIdFromToken = req.user.id; 
         const userRole = req.user.role;
+
+        try {
+            if (typeof translations === 'string') {
+                translations = JSON.parse(translations);
+                console.log("Received Create POI Request:", translations);
+            }
+        } catch (e) {
+            console.error("Error parsing translations:", e.message);
+            return res.status(400).json({ success: false, message: "Dữ liệu translations không đúng định dạng JSON." });
+        }
+        // ------------------------
+
+        // Kiểm tra xem translations có phải là mảng không sau khi parse
+        if (!Array.isArray(translations)) {
+            return res.status(400).json({ success: false, message: "translations phải là một mảng." });
+        }
+
+
+        let thumbnailUrl = null;
+        if (req.file) {
+            thumbnailUrl = `/uploads/thumbnails/${req.file.filename}`;
+        }
 
         const client = await pool.connect();
         try {
@@ -168,9 +190,9 @@ const poiController = {
 
             // 3. Insert POI gốc
             const poiRes = await client.query(`
-                INSERT INTO pois (id, latitude, longitude, category, owner_id)
-                VALUES (uuid_generate_v4(), $1, $2, $3, $4) RETURNING id
-            `, [latitude, longitude, category, finalOwnerId]);
+                INSERT INTO pois (id, latitude, longitude, category, owner_id, thumbnail_url)
+                VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5) RETURNING id
+            `, [latitude, longitude, category, finalOwnerId, thumbnailUrl]);
             
             const poiId = poiRes.rows[0].id;
 
@@ -217,7 +239,6 @@ const poiController = {
 
         } catch (err) {
             await client.query("ROLLBACK");
-            console.error("❌ Lỗi Create POI:", err.message);
             res.status(500).json({ success: false, error: err.message });
         } finally { 
             client.release(); 
@@ -227,32 +248,69 @@ const poiController = {
     // 5. UPDATE: Cập nhật POI và bản dịch (Sử dụng UPSERT)
     update: async (req, res) => {
         const { id } = req.params;
-        const { latitude, longitude, category, thumbnail_url, translations } = req.body;
+        let { latitude, longitude, category, translations } = req.body;
         const client = await pool.connect();
-        try {
-            await client.query("BEGIN");
-            await client.query(`
-                UPDATE pois SET latitude=$1, longitude=$2, category=$3, thumbnail_url=$4, updated_at=NOW() WHERE id=$5
-            `, [latitude, longitude, category, thumbnail_url, id]);
 
-            if (translations) {
+        try {
+            // 1. Parse translations nếu gửi từ FormData
+            if (typeof translations === 'string') {
+                translations = JSON.parse(translations);
+            }
+
+            await client.query("BEGIN");
+
+            // 2. Xử lý logic Thumbnail
+            let finalThumbnailUrl = req.body.thumbnail_url; // Giữ URL cũ mặc định
+
+            if (req.file) {
+                // Nếu có upload file mới:
+                // Lấy thông tin ảnh cũ để xóa khỏi folder (Optional nhưng nên làm)
+                const oldPoi = await client.query(`SELECT thumbnail_url FROM pois WHERE id = $1`, [id]);
+                const oldPath = oldPoi.rows[0]?.thumbnail_url;
+                
+                // Cập nhật đường dẫn mới
+                finalThumbnailUrl = `/uploads/thumbnails/${req.file.filename}`;
+
+                // Xóa file cũ nếu nó tồn tại trên server
+                if (oldPath && oldPath.startsWith('/uploads')) {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const absolutePath = path.join(__dirname, '..', oldPath); 
+                    if (fs.existsSync(absolutePath)) fs.unlinkSync(absolutePath);
+                }
+            }
+
+            // 3. Cập nhật bảng POIs
+            await client.query(`
+                UPDATE pois 
+                SET latitude=$1, longitude=$2, category=$3, thumbnail_url=$4 
+                WHERE id=$5
+            `, [latitude, longitude, category, finalThumbnailUrl, id]);
+
+            // 4. Cập nhật bản dịch (UPSERT)
+            if (translations && Array.isArray(translations)) {
                 for (const t of translations) {
                     const lang = await client.query(`SELECT id FROM languages WHERE code = $1`, [t.language_code]);
                     if (lang.rows.length > 0) {
                         await client.query(`
-                            INSERT INTO poi_translations (poi_id, language_id, name, description)
-                            VALUES ($1, $2, $3, $4)
-                            ON CONFLICT (poi_id, language_id) DO UPDATE SET name=EXCLUDED.name, description=EXCLUDED.description
+                            INSERT INTO poi_translations (id, poi_id, language_id, name, description)
+                            VALUES (uuid_generate_v4(), $1, $2, $3, $4)
+                            ON CONFLICT (poi_id, language_id) 
+                            DO UPDATE SET name=EXCLUDED.name, description=EXCLUDED.description
                         `, [id, lang.rows[0].id, t.name, t.description]);
                     }
                 }
             }
+
             await client.query("COMMIT");
-            res.json({ message: "Updated" });
+            res.json({ success: true, message: "Updated successfully", thumbnail_url: finalThumbnailUrl });
         } catch (err) {
             await client.query("ROLLBACK");
+            console.log("❌ Lỗi Update POI:", err.message);
             res.status(500).json({ error: err.message });
-        } finally { client.release(); }
+        } finally {
+            client.release();
+        }
     },
 
     // 6. DELETE: Xóa POI

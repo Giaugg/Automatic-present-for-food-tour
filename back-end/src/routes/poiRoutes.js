@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const poiController = require('../controllers/poiController');
 const authMiddleware = require('../middlewares/authMiddleware');
-
+const upload = require('../middlewares/uploadMiddleware');
 // ================= PUBLIC ROUTES =================
 
 /**
@@ -31,12 +31,12 @@ router.get('/:id/details', poiController.getDetails);
 /**
  * @route   POST /api/pois
  */
-router.post('/', authMiddleware.authMiddleware, poiController.create);
+router.post('/', authMiddleware.authMiddleware, upload.single('thumbnail'), poiController.create);
 
 /**
  * @route   PUT /api/pois/:id
  */
-router.put('/:id', authMiddleware.authMiddleware, poiController.update);
+router.put('/:id', authMiddleware.authMiddleware, upload.single('thumbnail'), poiController.update);
 
 /**
  * @route   DELETE /api/pois/:id

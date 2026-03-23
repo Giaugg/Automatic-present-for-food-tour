@@ -4,11 +4,12 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { poiApi } from "@/lib/api";
+import { getFileUrl, poiApi } from "@/lib/api";
 import { POIWithTranslation } from "@/types/pois";
 import { Navigation, Headphones, Loader2, Info, Gauge, Radius } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
+import toast from "react-hot-toast";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 const TRIGGER_RADIUS_KM = 0.03; // Bán kính kích hoạt 50m
@@ -279,65 +280,74 @@ const handleProximityAudio = useCallback(async (currentLat: number, currentLng: 
                 position={[poi.latitude, poi.longitude]}
                 icon={foodIcon || undefined}
               >
-                <Popup className="custom-popup" minWidth={320}>
-                  <div className="flex flex-col bg-white overflow-hidden rounded-[2rem] w-80">
-                    <div className="relative h-44 overflow-hidden">
-                      <img
-                        src={poi.thumbnail_url || "/default.jpg"}
-                        className="w-full h-full object-cover"
-                        alt={poi.name}
-                      />
-                      <span className="absolute top-4 left-4 bg-orange-500 px-3 py-1.5 rounded-xl text-[9px] font-black text-white uppercase shadow-lg border border-white/20">
-                        {poi.category}
-                      </span>
+              <Popup className="custom-popup" minWidth={320}>
+                <div className="flex flex-col bg-white overflow-hidden rounded-[2rem] w-80 shadow-2xl">
+                  {/* Phần Image Header */}
+                  <div className="relative h-44 overflow-hidden bg-slate-100">
+                    <img
+                      src={getFileUrl(poi.thumbnail_url!)} 
+                      className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
+                      alt={poi.name}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/placeholder.png";
+                      }}
+                    />
+                    
+                    {/* Category Badge */}
+                    <span className="absolute top-4 left-4 bg-orange-500 px-3 py-1.5 rounded-xl text-[9px] font-black text-white uppercase shadow-lg border border-white/20 backdrop-blur-sm">
+                      {poi.category || "Địa điểm"}
+                    </span>
+                  </div>
+
+                  {/* Nội dung bên dưới */}
+                  <div className="p-6 bg-white relative">
+                    <h3 className="text-xl font-black text-slate-900 uppercase mb-2 leading-none tracking-tighter">
+                      {poi.name}
+                    </h3>
+                    
+                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-6 max-h-32 overflow-y-auto text-[13px] text-slate-600 leading-relaxed scrollbar-hide italic">
+                      "{poi.description || "Không có mô tả cho địa điểm này."}"
                     </div>
 
-                    <div className="p-6 bg-white relative">
-                      <h3 className="text-xl font-black text-slate-900 uppercase mb-2 leading-none">
-                        {poi.name}
-                      </h3>
-                      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-6 max-h-32 overflow-y-auto text-[13px] text-slate-600 leading-relaxed scrollbar-hide italic">
-                        "{poi.description}"
-                      </div>
-
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => {
-                            const url = getFullAudioUrl(poi.audio_url!);
-                            if (!url) return alert("Chưa có thuyết minh!");
-                            toggleAudio(poi.id, url);
-                          }}
-                          className={`flex-1 py-4 rounded-[1.25rem] text-[10px] font-black uppercase flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95
-                            ${
-                              activeAudioKey === poi.id
-                                ? "bg-red-500 text-white"
-                                : "bg-slate-900 text-white hover:bg-blue-600"
-                            }
-                          `}
-                        >
-                          {activeAudioKey === poi.id ? (
-                            <>
-                              <div className="flex gap-0.5 items-end h-3">
-                                <div className="w-1 bg-white animate-[bounce_0.6s_infinite]" />
-                                <div className="w-1 bg-white animate-[bounce_0.6s_infinite_0.2s]" />
-                                <div className="w-1 bg-white animate-[bounce_0.6s_infinite_0.4s]" />
-                              </div>
-                              <span>Dừng phát</span>
-                            </>
-                          ) : (
-                            <>
-                              <Headphones size={16} strokeWidth={3} />
-                              <span>Nghe thuyết minh</span>
-                            </>
-                          )}
-                        </button>
-                        <button className="w-14 h-14 bg-white border-2 border-slate-100 rounded-[1.25rem] flex items-center justify-center text-slate-400">
-                          <Info size={20} strokeWidth={2.5} />
-                        </button>
-                      </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          const url = getFullAudioUrl(poi.audio_url!);
+                          if (!url) return toast.error("Chưa có thuyết minh!");
+                          toggleAudio(poi.id, url);
+                        }}
+                        className={`flex-1 py-4 rounded-[1.25rem] text-[10px] font-black uppercase flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95
+                          ${
+                            activeAudioKey === poi.id
+                              ? "bg-red-500 text-white ring-4 ring-red-500/20"
+                              : "bg-slate-900 text-white hover:bg-blue-600 shadow-slate-900/20"
+                          }
+                        `}
+                      >
+                        {activeAudioKey === poi.id ? (
+                          <>
+                            <div className="flex gap-0.5 items-end h-3">
+                              <div className="w-1 bg-white animate-[bounce_0.6s_infinite]" />
+                              <div className="w-1 bg-white animate-[bounce_0.6s_infinite_0.2s]" />
+                              <div className="w-1 bg-white animate-[bounce_0.6s_infinite_0.4s]" />
+                            </div>
+                            <span>Dừng phát</span>
+                          </>
+                        ) : (
+                          <>
+                            <Headphones size={16} strokeWidth={3} />
+                            <span>Nghe thuyết minh</span>
+                          </>
+                        )}
+                      </button>
+                      
+                      <button className="w-14 h-14 bg-white border-2 border-slate-100 rounded-[1.25rem] flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-100 transition-colors">
+                        <Info size={20} strokeWidth={2.5} />
+                      </button>
                     </div>
                   </div>
-                </Popup>
+                </div>
+              </Popup>
               </Marker>
             </div>
           );
