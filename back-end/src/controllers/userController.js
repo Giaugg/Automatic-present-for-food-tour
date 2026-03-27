@@ -56,8 +56,7 @@ const userController = {
                  SET full_name = COALESCE($1, full_name), 
                      role = COALESCE($2, role), 
                      points = COALESCE($3, points), 
-                     balance = COALESCE($4, balance),
-                     updated_at = CURRENT_TIMESTAMP 
+                     balance = COALESCE($4, balance)
                  WHERE id = $5 RETURNING id, full_name, role, points, balance`,
                 [full_name, role, points, balance, id]
             );
@@ -68,6 +67,7 @@ const userController = {
 
             res.json({ message: "Cập nhật thành công", user: result.rows[0] });
         } catch (err) {
+            console.log(err.me);
             res.status(400).json({ error: err.message });
         }
     },

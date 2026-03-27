@@ -9,19 +9,20 @@ const audioService = require('./services/audioService'); // Đường dẫn tớ
 // --- 1. MIDDLEWARES HỆ THỐNG ---
 
 // Cấu hình CORS linh hoạt hơn (hỗ trợ cả môi trường Dev và Production sau này)
-const allowedOrigins = [process.env.FRONTEND_URL || 'http://localhost:3000'];
-app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error('Chặn bởi chính sách CORS'));
-        }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
-}));
+const corsOptions = {
+  origin: '*', // Trong quá trình dev bạn có thể để '*', khi deploy nên để domain cụ thể
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'ngrok-skip-browser-warning', // Thêm dòng này để fix lỗi hiện tại
+    'Accept'
+  ]
+};
+
+app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

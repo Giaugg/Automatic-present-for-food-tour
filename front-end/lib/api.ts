@@ -1,29 +1,44 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
-// Giả định bạn đã thêm type Language vào file types
 import { Language } from '../types/language';
 import { AuthResponse, LoginCredentials, RegisterCredentials } from '../types/auth';
 import { User, UpdateProfileDTO } from '../types/user';
-import {
-  POIWithTranslation,
-  POIDetail,
-  CreatePOIDTO,
-} from '../types/pois';
-import {
-  Tour,
-  CreateTourDTO,
-  UpdateTourScheduleDTO
-} from '../types/tour';
+import { POIWithTranslation } from '../types/pois';
+import { Tour, CreateTourDTO, UpdateTourScheduleDTO } from '../types/tour';
 
-const API_URL = localStorage.getItem('apiUrl') || 'http://localhost:5000';
+
+let dynamicApiUrl: string | null = null;
+
+const getBaseUrl = async () => {
+  // 1. Ưu tiên lấy từ biến đã fetch thành công
+  if (dynamicApiUrl) return dynamicApiUrl;
+  
+  // 2. Fetch từ GitHub Raw (Thay link của bạn vào đây)
+  const GITHUB_RAW_URL = "https://raw.githubusercontent.com/user/repo/main/urls.json";
+  
+  try {
+    const response = await axios.get(GITHUB_RAW_URL);
+    dynamicApiUrl = response.data.apiUrl;
+    console.log("📡 Đã cập nhật API URL từ GitHub:", dynamicApiUrl);
+    return dynamicApiUrl;
+  } catch (error) {
+    console.error("❌ Không thể lấy URL từ GitHub, dùng mặc định");
+    return process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  }
+};
 
 const api: AxiosInstance = axios.create({
-  baseURL: `${API_URL}/api`, // Sử dụng biến môi trường
+  baseURL: `${getBaseUrl()}/api`,
   headers: {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
   },
 });
 
-api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+// Sửa lại Interceptor để hỗ trợ Async (Bất đồng bộ)
+api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+  const baseUrl = await getBaseUrl(); // Chờ lấy URL từ GitHub
+  config.baseURL = `${baseUrl}/api`;
+
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('token');
     if (token && config.headers) {
@@ -34,25 +49,16 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 });
 
 /**
- * 1. AUTH API
+ * 3. EXPORT CÁC API MODULES
  */
+
 export const authApi = {
-  register: (data: RegisterCredentials) =>
-    api.post<AuthResponse>('/auth/register', data),
-
-  login: (data: LoginCredentials) =>
-    api.post<AuthResponse>('/auth/login', data),
-
-  getMe: () =>
-    api.get<User>('/auth/me'),
-
-  updateProfile: (data: UpdateProfileDTO) =>
-    api.put<User>('/auth/profile', data),
+  register: (data: RegisterCredentials) => api.post<AuthResponse>('/auth/register', data),
+  login: (data: LoginCredentials) => api.post<AuthResponse>('/auth/login', data),
+  getMe: () => api.get<User>('/auth/me'),
+  updateProfile: (data: UpdateProfileDTO) => api.put<User>('/auth/profile', data),
 };
 
-/**
- * 2. LANGUAGE API (Mới thêm)
- */
 export const languageApi = {
   getActive: () => api.get<{ success: boolean; data: Language[] }>('/languages/active'),
   getAdminAll: () => api.get<{ success: boolean; data: Language[] }>('/languages/admin/all'),
@@ -60,33 +66,15 @@ export const languageApi = {
     api.patch<{ success: boolean; data: Language }>(`/languages/${id}/status`, { is_active: isActive }),
   update: (id: string, data: Partial<Language>) =>
     api.put<{ success: boolean; data: Language }>(`/languages/${id}`, data),
-  // Mới thêm
-  syncAudio: (id: string) =>
-    api.post<{ success: boolean; data: any }>(`/languages/${id}/sync-audio`),
-  syncTranslate: (id: string) =>
-    api.post<{ success: boolean; data: any }>(`/languages/${id}/sync-translate`),
+  syncAudio: (id: string) => api.post(`/languages/${id}/sync-audio`),
+  syncTranslate: (id: string) => api.post(`/languages/${id}/sync-translate`),
 };
 
-/**
- * 3. POI API (Điều chỉnh)
- */
 export const poiApi = {
-  // 1. Lấy danh sách cho User (mặc định tiếng Việt)
-  getAll: (lang: string = 'vi-VN') =>
-    api.get<POIWithTranslation[]>(`/pois`, { params: { lang } }),
-
-  getMyPOIs: () =>
-    api.get<POIWithTranslation[]>('/pois/my-pois'),
-
-  // 2. Lấy chi tiết cho User (1 ngôn ngữ)
-  getById: (id: string, lang: string) =>
-    api.get<POIWithTranslation>(`/pois/${id}`, { params: { lang } }),
-
-  // 3. Lấy TẤT CẢ bản dịch cho Admin (Cần khớp với route mới thêm ở Backend)
-  getDetails: (id: string) =>
-    api.get<{ success: boolean; data: { translations: any[] } }>(`/pois/${id}/details`),
-
-  // 4. Các thao tác CRUD
+  getAll: (lang: string = 'vi-VN') => api.get<POIWithTranslation[]>(`/pois`, { params: { lang } }),
+  getMyPOIs: () => api.get<POIWithTranslation[]>('/pois/my-pois'),
+  getById: (id: string, lang: string) => api.get<POIWithTranslation>(`/pois/${id}`, { params: { lang } }),
+  getDetails: (id: string) => api.get<{ success: boolean; data: { translations: any[] } }>(`/pois/${id}/details`),
   create: (formData: FormData) =>
     api.post<{ success: boolean; id: string }>('/pois', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
@@ -96,66 +84,29 @@ export const poiApi = {
       headers: { 'Content-Type': 'multipart/form-data' }
     }),
   delete: (id: string) => api.delete<{ success: boolean; message: string }>(`/pois/${id}`),
-
-  // 5. Thao tác Audio (Đã khớp với router.post('/:id/sync-audio', ...))
   syncMissingAudio: (id: string) => api.post(`/pois/${id}/sync-audio`),
   rebuildAudio: (id: string) => api.post(`/pois/${id}/rebuild-audio`),
 };
-/**
- * 4. TOUR API
- */
+
 export const tourApi = {
-  getAll: (lang: string = 'vi-VN') =>
-    api.get<Tour[]>('/tours', { params: { lang } }),
-
-  getDetails: (id: string, lang: string = 'vi-VN') =>
-    api.get<Tour>(`/tours/${id}`, { params: { lang } }),
-
-  create: (data: CreateTourDTO) =>
-    api.post<{ id: string; message: string }>('/tours', data),
-
-  update: (id: string, data: Partial<CreateTourDTO>) =>
-    api.put<{ message: string }>(`/tours/${id}`, data),
-
-  updateSchedule: (tourId: string, data: UpdateTourScheduleDTO) =>
-    api.put<{ message: string }>(`/tours/${tourId}/schedule`, data),
-
-  delete: (id: string) =>
-    api.delete<{ message: string }>(`/tours/${id}`),
+  getAll: (lang: string = 'vi-VN') => api.get<Tour[]>('/tours', { params: { lang } }),
+  getDetails: (id: string, lang: string = 'vi-VN') => api.get<Tour>(`/tours/${id}`, { params: { lang } }),
+  create: (data: CreateTourDTO) => api.post<{ id: string; message: string }>('/tours', data),
+  update: (id: string, data: Partial<CreateTourDTO>) => api.put<{ message: string }>(`/tours/${id}`, data),
+  updateSchedule: (tourId: string, data: UpdateTourScheduleDTO) => api.put<{ message: string }>(`/tours/${tourId}/schedule`, data),
+  delete: (id: string) => api.delete<{ message: string }>(`/tours/${id}`),
 };
 
-
 export const userApi = {
-  // GET /api/admin/users?role=...&search=...
-  getAll: (params?: { role?: string; search?: string }) =>
-    api.get<User[]>('/admin/users', { params }),
-
-  // GET /api/admin/users/:id
-  getById: (id: string) =>
-    api.get<User>(`/admin/users/${id}`),
-
-  // PUT /api/admin/users/:id
-  // Dùng cho việc Admin sửa Role, Points, Balance hoặc FullName
-  update: (id: string, data: Partial<User>) =>
-    api.put<{ message: string; user: User }>(`/admin/users/${id}`, data),
-
-  // POST /api/admin/users/:id/topup
-  adminTopUp: (id: string, amount: number) =>
-    api.post<{ message: string; newBalance: number }>(`/admin/users/${id}/topup`, { amount }),
-
-  // DELETE /api/admin/users/:id
-  delete: (id: string) =>
-    api.delete<{ message: string }>(`/admin/users/${id}`),
+  getAll: (params?: { role?: string; search?: string }) => api.get<User[]>('/admin/users', { params }),
+  getById: (id: string) => api.get<User>(`/admin/users/${id}`),
+  update: (id: string, data: Partial<User>) => api.put<{ message: string; user: User }>(`/admin/users/${id}`, data),
+  adminTopUp: (id: string, amount: number) => api.post<{ message: string; newBalance: number }>(`/admin/users/${id}/topup`, { amount }),
+  delete: (id: string) => api.delete<{ message: string }>(`/admin/users/${id}`),
 };
 
 export const systemApi = {
-  checkAudioStatus: () =>
-    api.get<{
-      success: boolean;
-      total_in_db: number;
-      missing_files: number;
-      details: any[]
-    }>('/admin/system/check-audio'),
+  checkAudioStatus: () => api.get('/admin/system/check-audio'),
 };
 
 export const dashboardApi = {
@@ -163,13 +114,15 @@ export const dashboardApi = {
   getOwnerStats: () => api.get('/dashboard/owner/stats'),
 };
 
+/**
+ * 4. HELPER FUNCTIONS
+ */
 export const getFileUrl = (path: string | null) => {
-  if (!path) return "/placeholder.png"; // Ảnh mặc định nếu không có path
-  if (path.startsWith('http')) return path; // Nếu đã là link full thì giữ nguyên
+  if (!path) return "/placeholder.png";
+  if (path.startsWith('http')) return path;
   
-  // Nối domain với path (đảm bảo không bị thừa dấu /)
-  return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+  const baseUrl = getBaseUrl();
+  return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
 };
 
-export const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 export default api;
