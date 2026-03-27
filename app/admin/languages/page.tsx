@@ -29,6 +29,7 @@ export default function AdminLanguageManager() {
       const res = await languageApi.getAdminAll();
       setLanguages(Array.isArray(res.data.data) ? res.data.data : []);
     } catch (err) {
+      console.log("Lỗi khi tải ngôn ngữ:", err);
       toast.error("Không thể tải danh sách ngôn ngữ");
     } finally {
       setLoading(false);
@@ -51,7 +52,7 @@ export default function AdminLanguageManager() {
         toast.success(`Đã ${newStatus ? 'bật' : 'tắt'} thành công!`);
       }
     } catch (err) {
-      console.error("Lỗi kết nối:", err);
+      console.log("Lỗi kết nối:", err);
       toast.error("Không thể kết nối đến máy chủ (Network Error)");
     } finally {
       setActionLoading(null);

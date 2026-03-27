@@ -1,34 +1,61 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { poiApi } from "@/lib/api";
 import { toast } from "react-hot-toast";
 import dynamic from 'next/dynamic';
-import { ImageIcon, XCircle, Loader2, AlertCircle } from "lucide-react";
+import { ImageIcon, Loader2, AlertCircle } from "lucide-react";
+import { Language } from "@/types/language"; // Giả định bạn đã có type này
+
+// --- 1. Định nghĩa Interfaces ---
+interface POITranslationInput {
+  language_code: string;
+  name: string;
+  description: string;
+}
+
+interface POIFormData {
+  latitude: number;
+  longitude: number;
+  category: string;
+  translations: POITranslationInput[];
+}
+
+interface CreatePoiModalProps {
+  open: boolean;
+  onClose: () => void;
+  languages: Language[];
+  onSuccess: () => void;
+}
 
 const MapPicker = dynamic(() => import('./MapPicker'), { 
   ssr: false,
   loading: () => <div className="h-full w-full bg-gray-100 animate-pulse flex items-center justify-center font-black italic">MAP IS LOADING...</div>
 });
 
-export default function CreatePoiModal({ open, onClose, languages, onSuccess }) {
+export default function CreatePoiModal({ open, onClose, languages, onSuccess }: CreatePoiModalProps) {
   const [activeTab, setActiveTab] = useState("vi-VN");
-  const [formData, setFormData] = useState<any>(null);
+  
+  // --- 2. Khởi tạo State với Type rõ ràng ---
+  const [formData, setFormData] = useState<POIFormData>({
+    latitude: 10.7769,
+    longitude: 106.7009,
+    category: "Ẩm thực",
+    translations: [],
+  });
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 1. Quản lý Cleanup Preview URL an toàn
   useEffect(() => {
     return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
 
-  // 2. Khởi tạo dữ liệu khi mở Modal
+  // Khởi tạo dữ liệu khi mở Modal
   useEffect(() => {
     if (open && languages?.length > 0) {
       setFormData({
@@ -53,58 +80,51 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }) 
 
     const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) {
-      e.target.value = ""; // Reset input
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return toast.error("Định dạng ảnh không hợp lệ (Chỉ nhận JPG, PNG, WEBP)");
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      e.target.value = ""; 
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return toast.error("Ảnh quá lớn (Giới hạn 5MB)");
     }
 
-    // Giải phóng bộ nhớ ảnh cũ trước khi gán ảnh mới
     if (previewUrl) URL.revokeObjectURL(previewUrl);
-    
     setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
-    toast.success("Ảnh đã sẵn sàng để tải lên!");
   };
 
   const handleSave = async () => {
     if (isSubmitting) return;
 
-    // Validate dữ liệu tối thiểu
-    const viTrans = formData.translations?.find(t => t.language_code === "vi-VN");
-    if (!viTrans?.name?.trim() || !viTrans?.description?.trim()) {
-      setActiveTab("vi-VN"); // Chuyển về tab lỗi để user thấy
+    const viTrans = formData.translations.find(t => t.language_code === "vi-VN");
+    if (!viTrans?.name.trim() || !viTrans?.description.trim()) {
+      setActiveTab("vi-VN");
       return toast.error("Vui lòng nhập Tên và Mô tả tiếng Việt!");
     }
 
     setIsSubmitting(true);
-    const tid = toast.loading("Đang xử lý dữ liệu và dịch thuật...");
+    const tid = toast.loading("Đang xử lý dữ liệu...");
 
     try {
       const data = new FormData();
       data.append('latitude', String(formData.latitude));
       data.append('longitude', String(formData.longitude));
       data.append('category', formData.category.trim());
-      // Gửi translations dưới dạng JSON string (Backend cần JSON.parse lại)
       data.append('translations', JSON.stringify(formData.translations));
       
-      if (selectedFile) {
-        data.append('thumbnail', selectedFile);
-      }
+      if (selectedFile) data.append('thumbnail', selectedFile);
 
       const response = await poiApi.create(data);
       
-      // Nếu có cảnh báo về dịch thuật nhưng POI vẫn được tạo
-      if (response.data?.warning) {
+      // Kiểm tra response an toàn hơn
+      const warning = (response.data as any)?.warning;
+      if (warning) {
         toast.success("Tạo POI thành công nhưng một số ngôn ngữ chưa được dịch.", { id: tid });
       } else {
-        toast.success("Tạo POI và dịch thuật hoàn tất!", { id: tid });
+        toast.success("Tạo POI hoàn tất!", { id: tid });
       }
 
-      toast.success("Tao POI thành công!", { id: tid });
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -115,10 +135,10 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }) 
     }
   };
 
-  if (!open || !formData) return null;
+  if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
       <div className="bg-white border-4 border-black rounded-[32px] w-full max-w-5xl overflow-hidden flex flex-col max-h-[92vh] shadow-[16px_16px_0px_0px_rgba(0,0,0,1)]">
         
         {/* Header */}
@@ -133,7 +153,6 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }) 
 
         <div className="flex-1 overflow-y-auto p-6 lg:p-10 grid grid-cols-1 lg:grid-cols-2 gap-10">
           
-          {/* Left Column */}
           <div className="space-y-8">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                <div className="space-y-2">
@@ -147,7 +166,7 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }) 
                         <img src={previewUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="Preview" />
                         {!isSubmitting && (
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                             <p className="text-white font-black text-xs uppercase">Change Photo</p>
+                              <p className="text-white font-black text-xs uppercase">Change Photo</p>
                           </div>
                         )}
                       </>
@@ -178,13 +197,12 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }) 
               <div className="h-[300px] border-4 border-black rounded-[32px] overflow-hidden shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-gray-100">
                 <MapPicker 
                   position={[formData.latitude, formData.longitude]} 
-                  setPosition={(pos) => setFormData({...formData, latitude: pos[0], longitude: pos[1]})} 
+                  setPosition={(pos: any) => setFormData({...formData, latitude: pos[0], longitude: pos[1]})} 
                 />
               </div>
             </div>
           </div>
 
-          {/* Right Column */}
           <div className="flex flex-col h-full min-h-[400px]">
             <label className="block font-black text-xs mb-3 uppercase opacity-40 tracking-widest">Content Details</label>
             
@@ -192,10 +210,11 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }) 
               {languages?.map((l) => (
                 <button 
                   key={l.code} 
+                  type="button"
                   disabled={isSubmitting}
                   onClick={() => setActiveTab(l.code)}
                   className={`px-5 py-2 border-4 border-black rounded-2xl font-black text-[10px] whitespace-nowrap transition-all uppercase ${
-                    activeTab === l.code ? 'bg-black text-white -translate-y-1 shadow-[4px_4px_0px_0px_rgba(250,204,21,1)]' : 'bg-white hover:bg-gray-100'
+                    activeTab === l.code ? 'bg-black text-white shadow-[4px_4px_0px_0px_rgba(250,204,21,1)]' : 'bg-white hover:bg-gray-100'
                   }`}
                 >
                   {l.name}
@@ -204,8 +223,8 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }) 
             </div>
 
             <div className="border-4 border-black p-6 rounded-[32px] bg-white flex-1 space-y-5 shadow-inner mt-2">
-              {formData.translations?.map((t, idx) => t.language_code === activeTab && (
-                <div key={t.language_code} className="space-y-4 animate-in slide-in-from-bottom-2">
+              {formData.translations.map((t, idx) => t.language_code === activeTab && (
+                <div key={t.language_code} className="space-y-4">
                   {t.language_code !== "vi-VN" && (
                     <div className="bg-yellow-100 border-2 border-black p-4 rounded-2xl text-[11px] font-black text-black italic flex items-start gap-3">
                       <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -217,7 +236,7 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }) 
                     <input 
                       placeholder="Nhập tên địa điểm..."
                       disabled={t.language_code !== "vi-VN" || isSubmitting}
-                      className={`w-full border-4 border-black p-4 rounded-2xl font-black outline-none transition-all ${t.language_code !== "vi-VN" ? "bg-gray-50 opacity-50 shadow-none" : "focus:bg-yellow-50 focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"}`}
+                      className={`w-full border-4 border-black p-4 rounded-2xl font-black outline-none transition-all ${t.language_code !== "vi-VN" ? "bg-gray-50 opacity-50" : "focus:bg-yellow-50"}`}
                       value={t.name}
                       onChange={e => {
                         const newTrans = [...formData.translations];
@@ -232,7 +251,7 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }) 
                       placeholder="Mô tả chi tiết về địa điểm này..."
                       disabled={t.language_code !== "vi-VN" || isSubmitting}
                       rows={6}
-                      className={`w-full border-4 border-black p-4 rounded-2xl font-black outline-none resize-none transition-all ${t.language_code !== "vi-VN" ? "bg-gray-50 opacity-50 shadow-none" : "focus:bg-yellow-50 focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"}`}
+                      className={`w-full border-4 border-black p-4 rounded-2xl font-black outline-none resize-none transition-all ${t.language_code !== "vi-VN" ? "bg-gray-50 opacity-50" : "focus:bg-yellow-50"}`}
                       value={t.description}
                       onChange={e => {
                         const newTrans = [...formData.translations];
@@ -247,12 +266,11 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }) 
           </div>
         </div>
 
-        {/* Action Bar */}
         <div className="p-8 border-t-4 border-black bg-gray-50 flex flex-col sm:flex-row gap-4">
           <button 
             disabled={isSubmitting}
             onClick={handleSave} 
-            className="flex-[2] bg-black text-white p-5 rounded-[24px] font-black text-xl hover:bg-yellow-400 hover:text-black transition-all active:scale-[0.98] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] flex items-center justify-center gap-4 disabled:bg-gray-400 disabled:shadow-none uppercase italic"
+            className="flex-[2] bg-black text-white p-5 rounded-[24px] font-black text-xl hover:bg-yellow-400 hover:text-black transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] flex items-center justify-center gap-4 disabled:bg-gray-400 uppercase italic"
           >
             {isSubmitting ? <><Loader2 className="w-6 h-6 animate-spin" /> Processing...</> : "Publish Landmark"}
           </button>

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { authApi, languageApi } from "@/lib/api";
+import { authApi, languageApi, poiApi } from "@/lib/api";
 import { User } from "@/types/auth";
 import { Languages, ChevronDown, Check, Loader2 } from "lucide-react";
 
@@ -52,16 +52,6 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     
     // Phát sự kiện để các component khác (như Map hoặc POI Detail) tự động cập nhật data
     window.dispatchEvent(new Event("lang-change"));
-  };
-
-  const handleMarkerClick = async (id: string) => {
-    const currentLang = localStorage.getItem("preferred_lang") || "vi-VN";
-    try {
-      const res = await poiApi.getById(id, currentLang);
-      setSelectedPoi(res.data); // Data lúc này đã có sẵn .name và .description đúng ngôn ngữ
-    } catch (err) {
-      console.error(err);
-    }
   };
 
   // 3. Khởi tạo dữ liệu
@@ -125,9 +115,6 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               <Link href="/map" className={`text-sm font-bold transition-colors ${pathname === "/map" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
                 Bản đồ
               </Link>
-              {/* <Link href="/tours" className={`text-sm font-bold transition-colors ${pathname === "/tours" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-                Tours
-              </Link> */}
               {user?.role === "admin" && (
                 <Link href="/admin" className={`text-sm font-bold transition-colors ${pathname.startsWith("/admin") ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
                   Quản trị

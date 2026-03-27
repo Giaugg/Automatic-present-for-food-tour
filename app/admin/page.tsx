@@ -8,12 +8,6 @@ import {
   TrendingUp, 
   Clock 
 } from "lucide-react";
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card"; // Nếu bạn dùng ShadcnUI, nếu không hãy thay bằng div
 
 export default function AdminPage() {
   const [stats, setStats] = useState<any>(null);

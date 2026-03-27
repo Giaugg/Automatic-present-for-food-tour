@@ -13,6 +13,7 @@ export interface POI {
   longitude: number;
   trigger_radius: number;
   thumbnail_url?: string;
+  audio_url?: string | null;
   category?: string;
   status: boolean;
   updated_at: string;
@@ -21,7 +22,9 @@ export interface POI {
 export interface POIWithTranslation extends POI {
   name: string;
   description?: string;
-  audio_url?: string;
+  audio_url?: string | null;
+  
+  data: any; // Dữ liệu gốc từ API, có thể chứa các trường khác tùy theo response thực tế
 }
 
 export interface POIDetail extends POI {

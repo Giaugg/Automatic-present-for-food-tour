@@ -1,9 +1,10 @@
 export interface Language {
-  id: string;           // UUID từ Postgres
-  code: string;         // 'vi-VN', 'en-US', 'ja-JP'...
-  name: string;         // 'Tiếng Việt', 'English'...
-  is_active: boolean;    // Trạng thái bật/tắt
-  created_at?: string;  // ISO Date string
+  id: string;
+  code: string;
+  name: string;
+  is_active: boolean;
+  locale: string; // Thêm dòng này nếu API thực tế có trả về hoặc UI cần dùng
+  created_at?: string;
 }
 
 /**

@@ -9,19 +9,24 @@ import { Tour, CreateTourDTO, UpdateTourScheduleDTO } from '../types/tour';
 let dynamicApiUrl: string | null = null;
 
 const getBaseUrl = async () => {
-  // 1. Ưu tiên lấy từ biến đã fetch thành công
   if (dynamicApiUrl) return dynamicApiUrl;
-  
-  // 2. Fetch từ GitHub Raw (Thay link của bạn vào đây)
-  const GITHUB_RAW_URL = "https://raw.githubusercontent.com/user/repo/main/urls.json";
+
+  // Sử dụng link RAW và thêm timestamp để tránh cache
+  const GITHUB_RAW_URL = `https://raw.githubusercontent.com/Giaugg/Automatic-present-for-food-tour/main/urls.json?t=${new Date().getTime()}`;
   
   try {
+    // Sử dụng axios để lấy file JSON
     const response = await axios.get(GITHUB_RAW_URL);
-    dynamicApiUrl = response.data.apiUrl;
-    console.log("📡 Đã cập nhật API URL từ GitHub:", dynamicApiUrl);
-    return dynamicApiUrl;
+    
+    // Kiểm tra cấu trúc dữ liệu trả về
+    if (response.data && response.data.apiUrl) {
+      dynamicApiUrl = response.data.apiUrl;
+      console.log("✅ API URL updated from GitHub:", dynamicApiUrl);
+      return dynamicApiUrl;
+    }
+    throw new Error("Invalid JSON structure");
   } catch (error) {
-    console.error("❌ Không thể lấy URL từ GitHub, dùng mặc định");
+    console.error("❌ Failed to fetch URL from GitHub:", error);
     return process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
   }
 };
@@ -123,6 +128,31 @@ export const getFileUrl = (path: string | null) => {
   
   const baseUrl = getBaseUrl();
   return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+};
+
+export const getFullAudioUrl = (url: string | null | undefined) => {
+  if (!url) return null;
+
+  // 1. Kiểm tra nếu URL đã là link tuyệt đối (http...) thì trả về luôn
+  if (url.startsWith('http')) return url;
+
+  // 2. Chuẩn hóa đường dẫn: Đảm bảo có /uploads ở đầu
+  // Ví dụ: url = "/poi-1.mp3" -> "/uploads/poi-1.mp3"
+  // Ví dụ: url = "uploads/poi-1.mp3" -> "/uploads/poi-1.mp3"
+  let path = url;
+  if (!path.startsWith('/uploads') && !path.startsWith('uploads')) {
+    path = `/uploads${path.startsWith('/') ? path : `/${path}`}`;
+  }
+  if (!path.startsWith('/')) {
+    path = `/${path}`;
+  }
+
+  // 3. Thêm tham số chống cache (v=timestamp) 
+  // Rất quan trọng khi bạn dùng tính năng Rebuild Audio ở trang Admin
+  const antiCache = `${path}${path.includes('?') ? '&' : '?'}v=${Date.now()}`;
+
+  // 4. Nối với BASE URL của Backend
+  return `${API_URL}${antiCache}`;
 };
 
 export default api;

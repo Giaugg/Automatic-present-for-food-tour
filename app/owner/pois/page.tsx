@@ -15,6 +15,7 @@ import {
   Volume2, 
   Languages 
 } from "lucide-react";
+import { POIWithTranslation } from "@/types/pois";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -28,7 +29,7 @@ export default function AdminPOIManagement() {
   // Modal States
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [selectedPoi, setSelectedPoi] = useState<any>(null);
+  const [selectedPoi, setSelectedPoi] = useState<POIWithTranslation | undefined>(undefined);
 
   // Refs
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -39,7 +40,7 @@ export default function AdminPOIManagement() {
       const res = await poiApi.getMyPOIs();
       // Load thêm chi tiết để lấy all_translations cho từng dòng
       const fullData = await Promise.all(
-        res.data.data.map(async (p: any) => {
+        res.data.map(async (p: POIWithTranslation) => {
           const details = await poiApi.getDetails(p.id);
           // Lưu ý: data.data.translations tùy thuộc vào cấu trúc trả về của API bạn
           return { ...p, all_translations: details.data.data?.translations || [] };

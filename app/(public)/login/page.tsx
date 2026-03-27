@@ -78,8 +78,8 @@ export default function LoginPage() {
           toast.error("Vui lòng đăng nhập với tài khoản vừa tạo.");
         }
       }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Thao tác thất bại.");
+    } catch (err) {
+      toast.error( "Thao tác thất bại.");
     } finally {
       setIsSubmitting(false);
     }

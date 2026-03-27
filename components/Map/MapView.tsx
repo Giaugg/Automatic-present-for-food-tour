@@ -51,7 +51,7 @@ export default function MapView() {
     ? [sim.manualPos.lat, sim.manualPos.lng] 
     : [latitude || 10.7769, longitude || 106.7009];
     
-  const nearbyItems = useNearbyPois(pois, currentPos[0], currentPos[1], 5);
+  const nearbyItems = useNearbyPois(pois, currentPos[0], currentPos[1]);
 
   // --- HÀM KHỞI TẠO ---
   useEffect(() => {

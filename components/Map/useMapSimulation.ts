@@ -20,7 +20,7 @@ export function useMapSimulation(
   const handleProximityAudio = useCallback(async (currentLat: number, currentLng: number) => {
     if (isProcessingAudio.current || pois.length === 0) return;
 
-    let closestPoi: POIWithTranslation | null = null;
+    let closestPoi: POIWithTranslation = pois[0];
     let closestDist = Infinity;
 
     pois.forEach(poi => {
@@ -34,7 +34,7 @@ export function useMapSimulation(
     if (closestPoi) {
       // Sửa lỗi logic so sánh: chỉ phát nếu địa điểm hiện tại khác target cũ HOẶC chưa có gì đang phát
       if ((!targetPoi || closestPoi.id !== targetPoi.id) && activeAudioKey !== closestPoi.id) {
-        const url = getFullAudioUrl(closestPoi.audio_url);
+        const url: string | null = closestPoi.audio_url ? getFullAudioUrl(closestPoi.audio_url) : null;
         if (url) {
           try {
             isProcessingAudio.current = true;
