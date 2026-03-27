@@ -58,3 +58,5 @@ Thumbs.db
 *.pem
 .idea/
 .vscode/
+
+back-end/src/services/service_account.json
