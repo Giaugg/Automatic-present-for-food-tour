@@ -1,0 +1,319 @@
+@baseUrl = http://localhost:5000
+@token = YOUR_JWT_TOKEN_HERE
+
+### ============================================
+### SERVER HEALTH CHECK
+### ============================================
+
+### Test Server Status
+GET {{baseUrl}}/
+
+
+### ============================================
+### AUTHENTICATION API (/api/auth)
+### ============================================
+
+### 1. Register User - Visitor (default role)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "visitor1",
+  "email": "visitor1@test.com",
+  "password": "password123"
+}
+
+###
+### 2. Register User - Owner
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "shop_owner",
+  "email": "owner@shop.com",
+  "password": "ownerpass123",
+  "role": "owner"
+}
+
+###
+### 3. Register User - Admin
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "admin_user",
+  "email": "admin@test.com",
+  "password": "adminpass123",
+  "role": "admin"
+}
+
+###
+### 4. Login - Success Case (Copy token từ response vào @token ở đầu file)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "visitor1@test.com",
+  "password": "password123"
+}
+
+###
+### 5. Login - Wrong Password (should return 401)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "visitor1@test.com",
+  "password": "wrongpassword"
+}
+
+###
+### 6. Login - Non-existent User (should return 401)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "notexist@test.com",
+  "password": "password123"
+}
+
+###
+### 7. Register - Duplicate Email (should return 409)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "newuser",
+  "email": "visitor1@test.com",
+  "password": "password123"
+}
+
+###
+### 8. Register - Invalid Role (should return 400)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "baduser",
+  "email": "bad@test.com",
+  "password": "password123",
+  "role": "superadmin"
+}
+
+
+### ============================================
+### POI API (/api/pois)
+### ============================================
+
+### 9. Get All POIs (default: English)
+GET {{baseUrl}}/api/pois
+
+###
+### 10. Get All POIs (Vietnamese)
+GET {{baseUrl}}/api/pois?lang=vi
+
+###
+### 11. Get POI Details by ID - Success
+GET {{baseUrl}}/api/pois/YOUR_POI_ID_HERE
+
+###
+### 12. Get POI Details - Invalid UUID Format (should return 500)
+GET {{baseUrl}}/api/pois/invalid-uuid-format
+
+###
+### 13. Get POI Details - Non-existent POI (should return 404)
+GET {{baseUrl}}/api/pois/00000000-0000-0000-0000-000000000000
+
+
+### ============================================
+### TOUR API (/api/tours) - PUBLIC ROUTES
+### ============================================
+
+### 14. Get All Tours
+GET {{baseUrl}}/api/tours
+
+###
+### 15. Get Tour Details by ID - Success
+GET {{baseUrl}}/api/tours/YOUR_TOUR_ID_HERE
+
+###
+### 16. Get Tour Details with Vietnamese POI names
+GET {{baseUrl}}/api/tours/YOUR_TOUR_ID_HERE?lang=vi
+
+###
+### 17. Get Tour Details - Invalid UUID Format (should return 500)
+GET {{baseUrl}}/api/tours/invalid-uuid-format
+
+###
+### 18. Get Tour Details - Non-existent Tour (should return 404)
+GET {{baseUrl}}/api/tours/00000000-0000-0000-0000-000000000000
+
+
+### ============================================
+### TOUR API - PROTECTED ROUTES (need JWT token)
+### ============================================
+
+### 19. Create New Tour - Success (requires auth)
+POST {{baseUrl}}/api/tours
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": {
+    "en": "Old Quarter Walking Tour",
+    "vi": "Tour Đi Bộ Phố Cổ"
+  },
+  "description": {
+    "en": "Explore the ancient streets",
+    "vi": "Khám phá các con phố cổ"
+  },
+  "thumbnail_url": "https://example.com/image.jpg",
+  "total_duration_minutes": 120
+}
+
+###
+### 20. Create Tour - Without Auth (should return 401)
+POST {{baseUrl}}/api/tours
+Content-Type: application/json
+
+{
+  "name": {
+    "en": "Unauthorized Tour",
+    "vi": "Tour Không Có Quyền"
+  },
+  "description": {
+    "en": "This should fail",
+    "vi": "Cái này sẽ thất bại"
+  },
+  "thumbnail_url": "https://example.com/image.jpg",
+  "total_duration_minutes": 60
+}
+
+###
+### 21. Create Tour - Missing Required Fields (should return 400/500)
+POST {{baseUrl}}/api/tours
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "thumbnail_url": "https://example.com/image.jpg"
+}
+
+###
+### 22. Update Tour - Success (requires auth)
+PUT {{baseUrl}}/api/tours/YOUR_TOUR_ID_HERE
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": {
+    "en": "Updated Tour Name",
+    "vi": "Tên Tour Đã Cập Nhật"
+  },
+  "total_duration_minutes": 150
+}
+
+###
+### 23. Update Tour - Without Auth (should return 401)
+PUT {{baseUrl}}/api/tours/YOUR_TOUR_ID_HERE
+Content-Type: application/json
+
+{
+  "name": {
+    "en": "Unauthorized Update",
+    "vi": "Cập Nhật Không Có Quyền"
+  }
+}
+
+###
+### 24. Update Tour - Non-existent Tour (should return 404)
+PUT {{baseUrl}}/api/tours/00000000-0000-0000-0000-000000000000
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": {
+    "en": "Non-existent Tour",
+    "vi": "Tour Không Tồn Tại"
+  }
+}
+
+###
+### 25. Add/Update POIs to Tour - Success (requires auth)
+POST {{baseUrl}}/api/tours/YOUR_TOUR_ID_HERE/items
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "items": [
+    {
+      "poi_id": "POI_ID_1",
+      "step_order": 1
+    },
+    {
+      "poi_id": "POI_ID_2",
+      "step_order": 2
+    },
+    {
+      "poi_id": "POI_ID_3",
+      "step_order": 3
+    }
+  ]
+}
+
+###
+### 26. Add POIs to Tour - Without Auth (should return 401)
+POST {{baseUrl}}/api/tours/YOUR_TOUR_ID_HERE/items
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "poi_id": "POI_ID_1",
+      "step_order": 1
+    }
+  ]
+}
+
+###
+### 27. Add POIs to Tour - Empty Items Array (should return 400)
+POST {{baseUrl}}/api/tours/YOUR_TOUR_ID_HERE/items
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "items": []
+}
+
+###
+### 28. Add POIs to Tour - Invalid Format (should return 400)
+POST {{baseUrl}}/api/tours/YOUR_TOUR_ID_HERE/items
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "items": "not-an-array"
+}
+
+###
+### 29. Remove POI from Tour - Success (requires auth)
+DELETE {{baseUrl}}/api/tours/YOUR_TOUR_ID_HERE/items/YOUR_POI_ID_HERE
+Authorization: Bearer {{token}}
+
+###
+### 30. Remove POI from Tour - Without Auth (should return 401)
+DELETE {{baseUrl}}/api/tours/YOUR_TOUR_ID_HERE/items/YOUR_POI_ID_HERE
+
+###
+### 31. Delete Tour - Success (requires auth)
+DELETE {{baseUrl}}/api/tours/YOUR_TOUR_ID_HERE
+Authorization: Bearer {{token}}
+
+###
+### 32. Delete Tour - Without Auth (should return 401)
+DELETE {{baseUrl}}/api/tours/YOUR_TOUR_ID_HERE
+
+###
+### 33. Delete Tour - Non-existent Tour (should return 404)
+DELETE {{baseUrl}}/api/tours/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}

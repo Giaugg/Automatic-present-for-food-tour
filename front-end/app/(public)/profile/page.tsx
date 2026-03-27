@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { User } from "@/types/auth";
 import { authApi } from "@/lib/api";
-import Link from "../../../front-end/node_modules/next/link";
+import Link from "next/link";
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);

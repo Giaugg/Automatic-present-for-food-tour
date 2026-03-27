@@ -1,8 +1,11 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# ###########################################################
+# GITIGNORE CHO DỰ ÁN MONOREPO (FE & BE)
+# ###########################################################
 
-# dependencies
-/node_modules
-/.pnp
+# --- Dependencies ---
+# Chặn node_modules ở cả thư mục gốc, front-end/ và back-end/
+node_modules/
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -10,32 +13,48 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
+# --- Next.js (Front-end) ---
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
 
-# next.js
-/.next/
-/out/
+# --- Production & Build Output ---
+build/
+dist/
+.vercel
 
-# production
-/build
+# --- Environment Files (Bảo mật cực kỳ quan trọng) ---
+# Không bao giờ push file .env chứa mật khẩu DB/API Key lên GitHub
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
 
-# misc
-.DS_Store
-*.pem
-
-# debug
+# --- Backend & Server Misc ---
+# Chặn các file ảnh/audio upload lên trong quá trình chạy local
+back-end/node_modules/*
+front-end/node_modules/*
+!back-end/uploads/.gitkeep
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# --- Database (Nếu bạn có dùng SQLite hoặc xuất file SQL) ---
+*.sqlite
+*.db
+back-end/backups/*.sql
 
-# vercel
-.vercel
+# --- Testing ---
+coverage/
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# --- Misc / OS ---
+.DS_Store
+Thumbs.db
+*.pem
+.idea/
+.vscode/
