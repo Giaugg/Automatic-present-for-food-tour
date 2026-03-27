@@ -34,7 +34,7 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts",
     "components/poi/CreatePoiModal.jsx"
-  ],
+, "next.config.next.config.mjs"  ],
   "exclude": [
     "node_modules"
   ]
