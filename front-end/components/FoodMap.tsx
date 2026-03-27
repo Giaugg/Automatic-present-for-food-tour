@@ -5,6 +5,7 @@ import { useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
 import L, { LatLngExpression } from "leaflet";
+import toast from "react-hot-toast";
 
 // Fix icon lỗi trong Next
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -35,7 +36,7 @@ export default function FoodMap() {
 
   function getMyLocation() {
     if (!navigator.geolocation) {
-      alert("Trình duyệt không hỗ trợ GPS");
+      toast.error("Trình duyệt của bạn không hỗ trợ GPS");
       return;
     }
 
@@ -46,7 +47,7 @@ export default function FoodMap() {
         setAccuracy(accuracy);
       },
       (err) => {
-        alert("Không lấy được vị trí: " + err.message);
+        toast.error("Không thể lấy vị trí của bạn: " + err.message);
       },
       {
         enableHighAccuracy: true,

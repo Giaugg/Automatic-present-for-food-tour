@@ -67,6 +67,7 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }) 
     
     setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
+    toast.success("Ảnh đã sẵn sàng để tải lên!");
   };
 
   const handleSave = async () => {
@@ -103,6 +104,7 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }) 
         toast.success("Tạo POI và dịch thuật hoàn tất!", { id: tid });
       }
 
+      toast.success("Tao POI thành công!", { id: tid });
       onSuccess();
       onClose();
     } catch (err: any) {

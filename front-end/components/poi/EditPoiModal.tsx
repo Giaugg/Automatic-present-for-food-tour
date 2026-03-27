@@ -66,6 +66,7 @@ export default function EditPoiModal({ open, onClose, poi, languages, onSuccess 
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
+    toast.success("Ảnh đã sẵn sàng để tải lên!");
   };
 
   const handleSave = async () => {

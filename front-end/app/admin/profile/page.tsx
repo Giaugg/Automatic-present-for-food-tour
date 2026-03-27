@@ -76,7 +76,7 @@ export default function AdminUserManagement() {
       setIsModalOpen(false);
       fetchUsers();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Có lỗi xảy ra");
+      toast.error(err.response?.data?.message || "Đã có lỗi xảy ra. Vui lòng thử lại."); // Hiển thị lỗi từ server nếu có
     }
   };
 
@@ -86,7 +86,7 @@ export default function AdminUserManagement() {
         await userApi.delete(id);
         fetchUsers();
       } catch (err) {
-        alert("Không thể xóa người dùng");
+        toast.error("Lỗi khi xóa tài khoản. Vui lòng thử lại.");
       }
     }
   };
