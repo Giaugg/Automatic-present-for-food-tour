@@ -125,9 +125,15 @@ export const dashboardApi = {
 export const getFileUrl = (path: string | null) => {
   if (!path) return "/placeholder.png";
   if (path.startsWith('http')) return path;
+
+  // Lấy URL đã cache. Nếu chưa có, dùng biến môi trường hoặc mặc định
+  // Không dùng await ở đây vì hàm này thường dùng trực tiếp trong component (render)
+  const baseUrl = dynamicApiUrl || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
   
-  const baseUrl = getBaseUrl();
-  return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+  // Chuẩn hóa đường dẫn: đảm bảo không bị double slash //
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  
+  return `${baseUrl}${cleanPath}`;
 };
 
 export const getFullAudioUrl = (url: string | null | undefined) => {
