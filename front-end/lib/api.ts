@@ -149,10 +149,7 @@ export const getFullAudioUrl = (url: string | null | undefined) => {
 
   // 3. Thêm tham số chống cache (v=timestamp) 
   // Rất quan trọng khi bạn dùng tính năng Rebuild Audio ở trang Admin
-  const antiCache = `${path}${path.includes('?') ? '&' : '?'}v=${Date.now()}`;
 
-  // 4. Nối với BASE URL của Backend
-  return `${API_URL}${antiCache}`;
 };
 
 export default api;

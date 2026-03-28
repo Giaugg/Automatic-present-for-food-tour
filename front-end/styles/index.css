@@ -1,8 +1,23 @@
-@import './tailwind.css';
-@import './theme.css';
-@import 'leaflet/dist/leaflet.css';
-:where(html, body, #root) {
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :where(html, body, #root) {
     @apply h-full w-full;
     margin: 0;
     padding: 0;
+  }
+
+  * {
+    /* Thay @apply border-border bằng cách viết CSS thuần này */
+    border-color: var(--border);
+    outline-color: rgba(var(--ring), 0.5);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-size: var(--font-size);
+  }
 }

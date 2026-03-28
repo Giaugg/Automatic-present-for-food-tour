@@ -1,19 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Montserrat } from "next/font/google"; // Dùng Montserrat cho chất "ẩm thực"
-import "../styles/index.css";
-
-// Cấu hình Font Inter cho các đoạn văn bản
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
-
-// Cấu hình Montserrat cho Tiêu đề (Hỗ trợ tiếng Việt cực tốt)
-const montserrat = Montserrat({
-  subsets: ["vietnamese"],
-  weight: ["400", "700", "900"],
-  variable: "--font-montserrat",
-});
+import "../styles/tailwind.css";
 
 export const metadata: Metadata = {
   title: "Phố Ẩm Thực - Thuyết Minh Tự Động",
@@ -27,9 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi">
-      <body
-        className={`${inter.variable} ${montserrat.variable} font-sans antialiased`}
-      >
+      <body>
         {children}
       </body>
     </html>

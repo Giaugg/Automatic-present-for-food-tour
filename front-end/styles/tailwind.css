@@ -1,1 +1,34 @@
 @import "tailwindcss";
+
+@theme {
+  /* Khai báo các biến màu sắc để Tailwind hiểu và tạo ra các tiện ích như outline-ring, bg-primary... */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: #030213;
+  --color-border: var(--border);
+  
+  /* QUAN TRỌNG: Phải khai báo ring là một màu ở đây */
+  --color-ring: oklch(0.708 0 0); 
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+/* Biến dữ liệu gốc */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --radius: 0.625rem;
+  --border: rgba(0, 0, 0, 0.1);
+}
+
+@layer base {
+  * {
+    /* Bây giờ Tailwind v4 đã hiểu outline-ring và hỗ trợ /50 */
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
