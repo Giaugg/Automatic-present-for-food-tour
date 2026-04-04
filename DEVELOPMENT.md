@@ -78,11 +78,20 @@
   - [x] BE: Nang cap BE (them EndPoint, update middleware)
   - [x] FE: Hoan Thien FE
   - [ ] Phat giong doc
-* cac task con lai
   - [ ] Add point: add vi tri bang cach tick tren gg maps
-  - [ ] Update quan ly tours: show + chinh sua POI tren tour
   - [ ] Nang cap da ngon ngu
   - [ ] Mo phong di chuyen tren map
-  - [ ] Full chuc nang thong ke: doanh thu, so lan ghe',...
-  - [ ] Full chuc nang thanh toan
-  - [ ] Thanh toan nhanh chong bang tien trong tai khoan
+  - [ ] Full chuc nang thong ke: doanh thu
+* cac task con lai
+  - [feature] Update quan ly tours: show + chinh sua POI tren tour
+  - [feature] Show thong tin quan dang duoc phat audio
+  - [docs] PRD
+  - [docs] Sequence
+  - [feature] Tien te
+  - [feature] Limit Request
+  - [feature] Full chuc nang thanh toan: VNPay, MONO,...
+  - [feature] Thanh toan nhanh chong bang tien trong tai khoan
+  - [feature] Goi cho chu quan
+  - [feature] Images - di kem voi thumbail
+  - [feature] Delete 1 audio cua POI
+  - [feature] Nhan dien thiet bi ket noi

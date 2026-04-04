@@ -4,6 +4,8 @@ import { AuthResponse, LoginCredentials, RegisterCredentials } from '../types/au
 import { User, UpdateProfileDTO } from '../types/user';
 import { POIWithTranslation } from '../types/pois';
 import { Tour, CreateTourDTO, UpdateTourScheduleDTO } from '../types/tour';
+import { clear } from 'console';
+import { clearPreviewData } from 'next/dist/server/api-utils';
 
 
 let dynamicApiUrl: string | null = null;
@@ -128,10 +130,12 @@ export const getFileUrl = (path: string | null) => {
 
   // Lấy URL đã cache. Nếu chưa có, dùng biến môi trường hoặc mặc định
   // Không dùng await ở đây vì hàm này thường dùng trực tiếp trong component (render)
-  const baseUrl = dynamicApiUrl || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const baseUrl = localStorage.getItem('apiBaseUrl') || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
   
   // Chuẩn hóa đường dẫn: đảm bảo không bị double slash //
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+  console.log(baseUrl,cleanPath);
   
   return `${baseUrl}${cleanPath}`;
 };
