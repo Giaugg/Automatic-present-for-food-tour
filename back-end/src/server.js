@@ -5,6 +5,7 @@ require('dotenv').config();
 const path = require('path');
 const app = express();
 const audioService = require('./services/audioService'); // Đường dẫn tới file trên
+const { apiLimiter } = require('./middlewares/rateLimitMiddleware');
 
 // --- 1. MIDDLEWARES HỆ THỐNG ---
 
@@ -26,6 +27,7 @@ app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/api', apiLimiter);
 
 // Logging middleware - Hiển thị chi tiết hơn để dễ fix lỗi Front-end
 app.use((req, res, next) => {
