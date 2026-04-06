@@ -17,11 +17,10 @@ export type DeviceIdentifyPayload = {
 
 
 let dynamicApiUrl: string | null = null;
-const DEFAULT_LOCAL_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const DEFAULT_LOCAL_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 const getApiSourceMode = () => {
-  const mode = (process.env.NEXT_PUBLIC_API_SOURCE || 'local').toLowerCase();
-  return mode === 'remote' ? 'remote' : 'local';
+  return (process.env.NEXT_PUBLIC_API_SOURCE || 'local').toLowerCase();
 };
 
 const getBaseUrl = async () => {
@@ -31,6 +30,8 @@ const getBaseUrl = async () => {
     dynamicApiUrl = DEFAULT_LOCAL_API_URL;
     return dynamicApiUrl;
   }
+
+  return DEFAULT_LOCAL_API_URL;
 
   // Sử dụng link RAW và thêm timestamp để tránh cache
   const GITHUB_RAW_URL = `https://raw.githubusercontent.com/Giaugg/Automatic-present-for-food-tour/main/urls.json?t=${new Date().getTime()}`;
