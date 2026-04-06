@@ -17,9 +17,20 @@ export type DeviceIdentifyPayload = {
 
 
 let dynamicApiUrl: string | null = null;
+const DEFAULT_LOCAL_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+const getApiSourceMode = () => {
+  const mode = (process.env.NEXT_PUBLIC_API_SOURCE || 'local').toLowerCase();
+  return mode === 'remote' ? 'remote' : 'local';
+};
 
 const getBaseUrl = async () => {
   if (dynamicApiUrl) return dynamicApiUrl;
+
+  if (getApiSourceMode() === 'local') {
+    dynamicApiUrl = DEFAULT_LOCAL_API_URL;
+    return dynamicApiUrl;
+  }
 
   // Sử dụng link RAW và thêm timestamp để tránh cache
   const GITHUB_RAW_URL = `https://raw.githubusercontent.com/Giaugg/Automatic-present-for-food-tour/main/urls.json?t=${new Date().getTime()}`;
@@ -37,12 +48,13 @@ const getBaseUrl = async () => {
     throw new Error("Invalid JSON structure");
   } catch (error) {
     console.error("❌ Failed to fetch URL from GitHub:", error);
-    return process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+    return DEFAULT_LOCAL_API_URL;
   }
 };
 
 const api: AxiosInstance = axios.create({
-  baseURL: `${getBaseUrl()}/api`,
+  // Giá trị mặc định cho lần khởi tạo đầu tiên, sau đó interceptor sẽ set lại chính xác.
+  baseURL: `${DEFAULT_LOCAL_API_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
     'ngrok-skip-browser-warning': 'true',
@@ -99,6 +111,8 @@ export const poiApi = {
       headers: { 'Content-Type': 'multipart/form-data' }
     }),
   delete: (id: string) => api.delete<{ success: boolean; message: string }>(`/pois/${id}`),
+  deleteAudio: (poiId: string, translationId: string) =>
+    api.delete<{ success: boolean; message: string }>(`/pois/${poiId}/audio/${translationId}`),
   syncMissingAudio: (id: string) => api.post(`/pois/${id}/sync-audio`),
   rebuildAudio: (id: string) => api.post(`/pois/${id}/rebuild-audio`),
 };
@@ -172,7 +186,8 @@ export const getFullAudioUrl = (url: string | null | undefined) => {
 
   // 3. Thêm tham số chống cache (v=timestamp) 
   // Rất quan trọng khi bạn dùng tính năng Rebuild Audio ở trang Admin
-
+  const baseUrl = dynamicApiUrl || DEFAULT_LOCAL_API_URL;
+  return `${baseUrl}${path}?v=${Date.now()}`;
 };
 
 export default api;

@@ -439,6 +439,42 @@ const poiController = {
             client.release();
         }
     },
+
+    // Xóa 1 audio của 1 bản dịch cụ thể trong 1 POI
+    deleteAudio: async (req, res) => {
+        const { id: poiId, translationId } = req.params;
+        if (!translationId) {
+            return res.status(400).json({ error: "Thiếu translationId" });
+        }
+
+        const client = await pool.connect();
+        try {
+            const transRes = await client.query(
+                `SELECT audio_url FROM poi_translations WHERE id = $1 AND poi_id = $2`,
+                [translationId, poiId]
+            );
+            if (transRes.rows.length === 0) {
+                return res.status(404).json({ error: "Không tìm thấy bản dịch thuộc POI này" });
+            }
+            const { audio_url } = transRes.rows[0];
+            if (audio_url) {
+                const fullPath = path.resolve(__dirname, "../../public", audio_url.replace(/^\//, ""));
+                if (fs.existsSync(fullPath)) {
+                    fs.unlinkSync(fullPath);
+                }
+            }
+            await client.query(
+                `UPDATE poi_translations SET audio_url = NULL WHERE id = $1 AND poi_id = $2`,
+                [translationId, poiId]
+            );
+
+            res.json({ success: true, message: "Đã xóa audio của 1 bản dịch" });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        } finally {
+            client.release();
+        }
+    }
 };
 
 module.exports = poiController;

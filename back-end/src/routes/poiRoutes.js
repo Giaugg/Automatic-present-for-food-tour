@@ -47,4 +47,9 @@ router.delete('/:id', authMiddleware.authMiddleware, poiController.delete);
 
 router.post('/:id/sync-audio', authMiddleware.authMiddleware, poiController.syncAudioById);
 router.post('/:id/rebuild-audio', authMiddleware.authMiddleware, poiController.rebuildAudioById);
+
+/**
+ * @route   DELETE /api/pois/:id/audio/:translationId
+ */
+router.delete('/:id/audio/:translationId', authMiddleware.authMiddleware, poiController.deleteAudio);
 module.exports = router;
