@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "../styles/tailwind.css";
+import DeviceTracker from "./DeviceTracker";
 
 export const metadata: Metadata = {
   title: "Phố Ẩm Thực - Thuyết Minh Tự Động",
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body>
+        <DeviceTracker />
         {children}
       </body>
     </html>

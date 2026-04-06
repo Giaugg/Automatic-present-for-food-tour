@@ -94,4 +94,4 @@
   - [feature] Goi cho chu quan
   - [feature] Images - di kem voi thumbail
   - [feature] Delete 1 audio cua POI
-  - [feature] Nhan dien thiet bi ket noi
+  - [x] Nhan dien thiet bi ket noi
