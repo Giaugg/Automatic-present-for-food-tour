@@ -3,7 +3,13 @@ const toInt = (value, fallback) => {
   return Number.isNaN(parsed) ? fallback : parsed;
 };
 
-const toWindowMs = (windowMsEnv, windowSecondsEnv, fallbackMs) => {
+// Ưu tiên cấu hình theo phút để dễ đọc trong file .env.
+const toWindowMs = (windowMinutesEnv, windowMsEnv, windowSecondsEnv, fallbackMs) => {
+  const minutes = Number.parseInt(windowMinutesEnv, 10);
+  if (!Number.isNaN(minutes) && minutes > 0) {
+    return minutes * 60 * 1000;
+  }
+
   const seconds = Number.parseInt(windowSecondsEnv, 10);
   if (!Number.isNaN(seconds) && seconds > 0) {
     return seconds * 1000;
@@ -22,6 +28,7 @@ const toWindowMs = (windowMsEnv, windowSecondsEnv, fallbackMs) => {
   return rawMs;
 };
 
+// Middleware giới hạn request theo IP + route để giảm spam API.
 const createLimiter = ({ windowMs, max, message, standardHeaders = true }) => {
   const store = new Map();
 
@@ -65,8 +72,10 @@ const createLimiter = ({ windowMs, max, message, standardHeaders = true }) => {
   };
 };
 
+// Giới hạn chung cho toàn bộ API.
 const apiLimiter = createLimiter({
   windowMs: toWindowMs(
+    process.env.RATE_LIMIT_WINDOW_MINUTES,
     process.env.RATE_LIMIT_WINDOW_MS,
     process.env.RATE_LIMIT_WINDOW_SECONDS,
     15 * 60 * 1000
@@ -75,8 +84,10 @@ const apiLimiter = createLimiter({
   message: 'Bạn gửi quá nhiều request. Vui lòng thử lại sau ít phút.'
 });
 
+// Giới hạn chặt hơn cho các API nhạy cảm như login/register.
 const authLimiter = createLimiter({
   windowMs: toWindowMs(
+    process.env.AUTH_RATE_LIMIT_WINDOW_MINUTES,
     process.env.AUTH_RATE_LIMIT_WINDOW_MS,
     process.env.AUTH_RATE_LIMIT_WINDOW_SECONDS,
     10 * 60 * 1000

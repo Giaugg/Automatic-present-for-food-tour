@@ -129,6 +129,7 @@ export const dashboardApi = {
   getOwnerStats: () => api.get('/dashboard/owner/stats'),
 };
 
+// API trung tâm cho tracking thiết bị (đi qua interceptor để tự gắn token nếu có).
 export const deviceApi = {
   identify: (payload: DeviceIdentifyPayload) => api.post('/device/identify', payload),
 };

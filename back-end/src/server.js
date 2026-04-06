@@ -27,6 +27,7 @@ app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// Áp dụng rate limit cho toàn bộ nhóm API `/api`.
 app.use('/api', apiLimiter);
 
 // Logging middleware - Hiển thị chi tiết hơn để dễ fix lỗi Front-end
@@ -61,6 +62,7 @@ app.use('/api/pois', require('./routes/poiRoutes'));
 app.use('/api/tours', require('./routes/tourRoutes'));
 app.use('/api/languages', require('./routes/languageRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
+// API nhận diện thiết bị khi client truy cập.
 app.use('/api/device', require('./routes/deviceRoutes'));
 
 // Route Quản trị (Dành cho trang Quản lý hồ sơ/tài khoản)

@@ -1,3 +1,4 @@
+// Phân loại thiết bị dựa trên user-agent.
 const toDeviceType = (userAgent = '') => {
   const ua = userAgent.toLowerCase();
 
@@ -12,6 +13,7 @@ const toDeviceType = (userAgent = '') => {
   return 'desktop';
 };
 
+// Nhận diện trình duyệt chính để phục vụ thống kê.
 const toBrowser = (userAgent = '') => {
   const ua = userAgent.toLowerCase();
 
@@ -24,6 +26,7 @@ const toBrowser = (userAgent = '') => {
   return 'Unknown';
 };
 
+// Nhận diện hệ điều hành từ user-agent và hint của trình duyệt.
 const toOperatingSystem = (userAgent = '', platformHint = '') => {
   const ua = userAgent.toLowerCase();
   const hint = platformHint.toLowerCase();
@@ -37,6 +40,7 @@ const toOperatingSystem = (userAgent = '', platformHint = '') => {
   return 'Unknown';
 };
 
+// Lấy IP theo ưu tiên header proxy, sau đó fallback về socket.
 const getClientIp = (req) => {
   const xForwardedFor = req.headers['x-forwarded-for'];
 
@@ -47,6 +51,7 @@ const getClientIp = (req) => {
   return req.ip || req.socket?.remoteAddress || 'unknown';
 };
 
+// Gom toàn bộ thông tin nhận diện phía server để controller trả về.
 const extractServerDeviceInfo = (req) => {
   const userAgent = req.headers['user-agent'] || '';
   const platformHint = req.headers['sec-ch-ua-platform'] || '';

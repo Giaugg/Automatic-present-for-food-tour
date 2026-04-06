@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { deviceApi, DeviceIdentifyPayload } from "../lib/api";
 
+// Chỉ gửi tracking 1 lần mỗi session trình duyệt để tránh gọi lặp.
 const SESSION_KEY = "device_tracked_once";
 
 const DeviceTracker = () => {
@@ -15,6 +16,7 @@ const DeviceTracker = () => {
       return;
     }
 
+    // Dữ liệu client-hints gửi lên backend để bổ sung cho user-agent.
     const payload: DeviceIdentifyPayload = {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
       language: navigator.language || null,
@@ -25,10 +27,8 @@ const DeviceTracker = () => {
 
     deviceApi
       .identify(payload)
-      .then((response) => {
-        if (response.status >= 200 && response.status < 300) {
-          window.sessionStorage.setItem(SESSION_KEY, "1");
-        }
+      .then(() => {
+        window.sessionStorage.setItem(SESSION_KEY, "1");
       })
       .catch(() => {
         // Bỏ qua lỗi tracking để không ảnh hưởng trải nghiệm người dùng

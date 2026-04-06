@@ -15,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body>
+        {/* Gắn tracker ở layout gốc để mọi trang đều ghi nhận thiết bị. */}
         <DeviceTracker />
         {children}
       </body>
