@@ -3,6 +3,25 @@ const toInt = (value, fallback) => {
   return Number.isNaN(parsed) ? fallback : parsed;
 };
 
+const toWindowMs = (windowMsEnv, windowSecondsEnv, fallbackMs) => {
+  const seconds = Number.parseInt(windowSecondsEnv, 10);
+  if (!Number.isNaN(seconds) && seconds > 0) {
+    return seconds * 1000;
+  }
+
+  const rawMs = Number.parseInt(windowMsEnv, 10);
+  if (Number.isNaN(rawMs) || rawMs <= 0) {
+    return fallbackMs;
+  }
+
+  // Hỗ trợ cách set nhanh khi test: nếu giá trị quá nhỏ (<=1000), hiểu theo giây.
+  if (rawMs <= 1000) {
+    return rawMs * 1000;
+  }
+
+  return rawMs;
+};
+
 const createLimiter = ({ windowMs, max, message, standardHeaders = true }) => {
   const store = new Map();
 
@@ -47,13 +66,21 @@ const createLimiter = ({ windowMs, max, message, standardHeaders = true }) => {
 };
 
 const apiLimiter = createLimiter({
-  windowMs: toInt(process.env.RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
+  windowMs: toWindowMs(
+    process.env.RATE_LIMIT_WINDOW_MS,
+    process.env.RATE_LIMIT_WINDOW_SECONDS,
+    15 * 60 * 1000
+  ),
   max: toInt(process.env.RATE_LIMIT_MAX, 300),
   message: 'Bạn gửi quá nhiều request. Vui lòng thử lại sau ít phút.'
 });
 
 const authLimiter = createLimiter({
-  windowMs: toInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS, 10 * 60 * 1000),
+  windowMs: toWindowMs(
+    process.env.AUTH_RATE_LIMIT_WINDOW_MS,
+    process.env.AUTH_RATE_LIMIT_WINDOW_SECONDS,
+    10 * 60 * 1000
+  ),
   max: toInt(process.env.AUTH_RATE_LIMIT_MAX, 10),
   message: 'Bạn đăng nhập/đăng ký quá nhanh. Vui lòng thử lại sau.'
 });

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { deviceApi, DeviceIdentifyPayload } from "../lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 const SESSION_KEY = "device_tracked_once";
 
 const DeviceTracker = () => {
@@ -15,7 +15,7 @@ const DeviceTracker = () => {
       return;
     }
 
-    const payload = {
+    const payload: DeviceIdentifyPayload = {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
       language: navigator.language || null,
       platform: navigator.platform || null,
@@ -23,15 +23,10 @@ const DeviceTracker = () => {
       touchPoints: navigator.maxTouchPoints || 0
     };
 
-    fetch(`${API_BASE}/api/device/identify`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    })
+    deviceApi
+      .identify(payload)
       .then((response) => {
-        if (response.ok) {
+        if (response.status >= 200 && response.status < 300) {
           window.sessionStorage.setItem(SESSION_KEY, "1");
         }
       })

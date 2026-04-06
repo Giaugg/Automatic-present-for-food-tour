@@ -7,6 +7,14 @@ import { Tour, CreateTourDTO, UpdateTourScheduleDTO } from '../types/tour';
 import { clear } from 'console';
 import { clearPreviewData } from 'next/dist/server/api-utils';
 
+export type DeviceIdentifyPayload = {
+  timezone: string | null;
+  language: string | null;
+  platform: string | null;
+  screenResolution: string;
+  touchPoints: number;
+};
+
 
 let dynamicApiUrl: string | null = null;
 
@@ -119,6 +127,10 @@ export const systemApi = {
 export const dashboardApi = {
   getAdminStats: () => api.get('/dashboard/admin/stats'),
   getOwnerStats: () => api.get('/dashboard/owner/stats'),
+};
+
+export const deviceApi = {
+  identify: (payload: DeviceIdentifyPayload) => api.post('/device/identify', payload),
 };
 
 /**
