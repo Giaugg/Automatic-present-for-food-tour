@@ -25,6 +25,7 @@ export default function AdminPOIManagement() {
   const [languages, setLanguages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeAudioKey, setActiveAudioKey] = useState<string | null>(null);
+  const [deletingAudioKey, setDeletingAudioKey] = useState<string | null>(null);
   
   // Modal States
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -128,6 +129,29 @@ export default function AdminPOIManagement() {
     }
   };
 
+  const handleDeleteSingleAudio = async (poiId: string, translationId: string, langCode: string) => {
+    const key = `${poiId}_${langCode}`;
+    if (!confirm(`Xóa audio ngôn ngữ ${langCode} cho POI này?`)) return;
+
+    setDeletingAudioKey(key);
+    const tid = toast.loading(`Đang xóa audio ${langCode}...`);
+    try {
+      await poiApi.deleteAudio(poiId, translationId);
+
+      if (activeAudioKey === key) {
+        audioRef.current?.pause();
+        setActiveAudioKey(null);
+      }
+
+      toast.success("Đã xóa audio thành công", { id: tid });
+      await fetchPOIs();
+    } catch (err) {
+      toast.error("Xóa audio thất bại", { id: tid });
+    } finally {
+      setDeletingAudioKey(null);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa địa điểm này và toàn bộ bản dịch liên quan?")) return;
     try {
@@ -203,28 +227,42 @@ export default function AdminPOIManagement() {
                     {languages.map((lang) => {
                       const trans = poi.all_translations?.find((t: any) => t.language_code === lang.code);
                       const isPlaying = activeAudioKey === `${poi.id}_${lang.code}`;
+                      const isDeleting = deletingAudioKey === `${poi.id}_${lang.code}`;
                       const hasAudio = !!trans?.audio_url;
 
                       return (
-                        <button
-                          key={lang.code}
-                          disabled={!hasAudio}
-                          onClick={() => handleToggleAudio(poi.id, lang.code, trans.audio_url)}
-                          className={`
-                            group relative px-4 py-2 rounded-xl border-2 border-black font-black text-[10px] flex items-center gap-2 transition-all
-                            ${hasAudio 
-                              ? (isPlaying ? "bg-black text-white scale-105 shadow-none" : "bg-white hover:bg-yellow-400 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]") 
-                              : "opacity-20 grayscale cursor-not-allowed"}
-                          `}
-                        >
-                          {isPlaying ? (
-                            <Pause size={12} fill="currentColor" />
-                          ) : (
-                            <Play size={12} fill={hasAudio ? "black" : "none"} />
+                        <div key={lang.code} className="flex items-center gap-1">
+                          <button
+                            disabled={!hasAudio || isDeleting}
+                            onClick={() => handleToggleAudio(poi.id, lang.code, trans?.audio_url || null)}
+                            className={`
+                              group relative px-4 py-2 rounded-xl border-2 border-black font-black text-[10px] flex items-center gap-2 transition-all
+                              ${hasAudio 
+                                ? (isPlaying ? "bg-black text-white scale-105 shadow-none" : "bg-white hover:bg-yellow-400 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]") 
+                                : "opacity-20 grayscale cursor-not-allowed"}
+                              ${isDeleting ? "opacity-60 cursor-wait" : ""}
+                            `}
+                          >
+                            {isPlaying ? (
+                              <Pause size={12} fill="currentColor" />
+                            ) : (
+                              <Play size={12} fill={hasAudio ? "black" : "none"} />
+                            )}
+                            {lang.code.split('-')[0].toUpperCase()}
+                            {!hasAudio && <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-black" />}
+                          </button>
+
+                          {hasAudio && trans?.id && (
+                            <button
+                              onClick={() => handleDeleteSingleAudio(poi.id, trans.id, lang.code)}
+                              title={`Xóa audio ${lang.code}`}
+                              disabled={isDeleting}
+                              className="h-8 w-8 flex items-center justify-center rounded-lg border-2 border-black bg-red-100 text-red-600 hover:bg-red-500 hover:text-white transition-colors disabled:opacity-60 disabled:cursor-wait"
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           )}
-                          {lang.code.split('-')[0].toUpperCase()}
-                          {!hasAudio && <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-black" />}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
