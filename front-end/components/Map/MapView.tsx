@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { useRouter } from "next/navigation";
 
 // API & Types
-import { poiApi } from "@/lib/api";
+import { poiApi, getFileUrl } from "@/lib/api";
 import { POIWithTranslation } from "@/types/pois";
 
 // Hooks & Utils
@@ -31,6 +32,8 @@ function ChangeView({ center }: { center: [number, number] }) {
 }
 
 export default function MapView() {
+  const router = useRouter();
+
   // 1. Dữ liệu GPS & Audio từ Hệ thống
   const { latitude, longitude } = useGeolocation();
   const { activeAudioKey, toggleAudio } = useAudioPlayer();
@@ -39,6 +42,8 @@ export default function MapView() {
   const [pois, setPois] = useState<POIWithTranslation[]>([]);
   const [loading, setLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
+  const [isSidebarClosed, setIsSidebarClosed] = useState(false);
+  const [recentPois, setRecentPois] = useState<POIWithTranslation[]>([]);
 
   // 3. Ref để quản lý Marker (Dùng để mở Popup từ Nearby Panel)
   const markerRefs = useRef<{ [key: string]: any }>({});
@@ -81,6 +86,11 @@ export default function MapView() {
     if (isMounted) loadPois();
   }, [isMounted, loadPois]);
 
+  useEffect(() => {
+    if (!isMounted || loading) return;
+    sim.handleProximityAudio(currentPos[0], currentPos[1]);
+  }, [isMounted, loading, currentPos[0], currentPos[1], sim.handleProximityAudio]);
+
   // --- HÀM XỬ LÝ KHI BẤM VÀO QUÁN ĂN TRÊN PANEL ---
   const handleSelectNearby = (poi: any) => {
     const marker = markerRefs.current[poi.id];
@@ -90,6 +100,39 @@ export default function MapView() {
       // sim.setManualPos({ lat: poi.latitude, lng: poi.longitude });
     }
   };
+
+  const nowPlayingPoi = sim.targetPoi;
+
+  useEffect(() => {
+    if (!nowPlayingPoi) return;
+
+    setRecentPois((prev: POIWithTranslation[]) => {
+      const next = [nowPlayingPoi, ...prev.filter((p: POIWithTranslation) => p.id !== nowPlayingPoi.id)];
+      return next.slice(0, 5);
+    });
+  }, [nowPlayingPoi]);
+
+  useEffect(() => {
+    if (nowPlayingPoi) {
+      setIsSidebarClosed(false);
+    }
+  }, [nowPlayingPoi]);
+
+  const isSidebarVisible = !!nowPlayingPoi && !isSidebarClosed;
+
+  const handleOpenPoiPopup = (poi: POIWithTranslation) => {
+    const marker = markerRefs.current[poi.id];
+    if (marker) {
+      marker.openPopup();
+    }
+  };
+
+  const handleViewPoiDetail = (poiId: string) => {
+    router.push(`/map/${poiId}`);
+  };
+
+  const isMobileViewport = isMounted && typeof window !== "undefined" && window.innerWidth < 768;
+  const popupOffset: [number, number] = isMobileViewport ? [0, -220] : [0, -170];
 
   // --- GIAO DIỆN LOADING ---
   if (!isMounted || loading) return (
@@ -133,6 +176,108 @@ return (
           />
         </div>
       </div>
+
+      {!isSidebarVisible && nowPlayingPoi && (
+        <button
+          onClick={() => setIsSidebarClosed(false)}
+          className="fixed z-[1006] left-4 top-20 px-3 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-xl"
+        >
+          Mo thong tin quán
+        </button>
+      )}
+
+      {/* SLIDEBAR ĐANG PHÁT: xuất hiện khi user đi vào trigger audio */}
+      <aside
+        className={`fixed z-[1006] bg-white/95 backdrop-blur-xl border-r border-white/70 shadow-2xl transition-all duration-500 ease-out
+          top-0 left-0 h-full w-[340px]
+          ${isSidebarVisible ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none'}`}
+      >
+        <div className="h-full flex flex-col">
+          <div className="flex items-center gap-3 px-4 py-3 bg-blue-600 text-white">
+            <div className="h-2.5 w-2.5 rounded-full bg-emerald-300 animate-pulse" />
+            <p className="text-[11px] font-black uppercase tracking-widest">Dang phat thuyet minh</p>
+            <button
+              onClick={() => setIsSidebarClosed(true)}
+              className="ml-auto text-xs font-bold bg-white/20 px-2 py-1 rounded-lg"
+            >
+              Dong
+            </button>
+          </div>
+
+          {nowPlayingPoi ? (
+            <div className="p-4 overflow-y-auto space-y-4">
+              <img
+                src={getFileUrl(nowPlayingPoi.thumbnail_url || null)}
+                alt={nowPlayingPoi.name}
+                className="w-full h-40 rounded-2xl object-cover border border-slate-200"
+              />
+
+              <div className="space-y-2">
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight leading-tight">
+                  {nowPlayingPoi.name}
+                </h3>
+                <div className="inline-flex px-2 py-1 rounded-lg bg-orange-50 text-orange-700 text-[10px] font-bold uppercase border border-orange-100">
+                  {nowPlayingPoi.category || "food"}
+                </div>
+              </div>
+
+              <p className="text-sm text-slate-600 leading-relaxed">
+                {nowPlayingPoi.description || "Dang phat audio mo ta dia diem nay."}
+              </p>
+
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-2">
+                  <p className="text-slate-400 uppercase font-bold text-[9px]">Khoang cach</p>
+                  <p className="font-black text-slate-800">
+                    {Number.isFinite(sim.minDistance) ? `${Math.round(sim.minDistance * 1000)} m` : "---"}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-2">
+                  <p className="text-slate-400 uppercase font-bold text-[9px]">Toa do</p>
+                  <p className="font-mono text-[10px] text-slate-700 truncate">
+                    {nowPlayingPoi.latitude.toFixed(5)}, {nowPlayingPoi.longitude.toFixed(5)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleOpenPoiPopup(nowPlayingPoi)}
+                  className="w-full py-2 rounded-xl bg-slate-900 text-white text-xs font-bold"
+                >
+                  Mo popup
+                </button>
+                <button
+                  onClick={() => handleViewPoiDetail(nowPlayingPoi.id)}
+                  className="w-full py-2 rounded-xl bg-blue-600 text-white text-xs font-bold"
+                >
+                  Xem chi tiet
+                </button>
+              </div>
+
+              <div className="pt-2 border-t border-slate-200">
+                <p className="text-[10px] uppercase font-black tracking-wider text-slate-400 mb-2">POI da di qua gan day</p>
+                <div className="space-y-2">
+                  {recentPois.map((poi) => (
+                    <button
+                      key={poi.id}
+                      onClick={() => handleOpenPoiPopup(poi)}
+                      className="w-full text-left p-2 rounded-xl bg-slate-50 border border-slate-200 hover:border-blue-200"
+                    >
+                      <p className="text-xs font-bold text-slate-800 truncate">{poi.name}</p>
+                      <p className="text-[10px] text-slate-500 truncate">{poi.category || "food"}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center text-slate-400 text-sm px-6 text-center">
+              Chua co dia diem nao dang phat audio.
+            </div>
+          )}
+        </div>
+      </aside>
 
       {/* 3. NEARBY PANEL (Mobile: Vuốt từ dưới lên | Desktop: Cố định bên trái) */}
       <div className="fixed bottom-0 left-0 right-0 z-[1005] md:absolute md:top-4 md:left-4 md:bottom-auto md:right-auto md:w-[340px] pointer-events-none">
@@ -219,7 +364,14 @@ return (
                   iconAnchor: [20, 40]
                 })}
               >
-                <Popup className="custom-popup" minWidth={window?.innerWidth < 768 ? 280 : 320}>
+                <Popup
+                  className="custom-popup"
+                  minWidth={isMobileViewport ? 260 : 300}
+                  maxWidth={320}
+                  offset={popupOffset}
+                  autoPanPaddingBottomRight={[24, 280]}
+                  autoPanPaddingTopLeft={[24, 24]}
+                >
                   <MapPopup 
                     poi={poi} 
                     activeAudioKey={activeAudioKey} 
@@ -247,11 +399,13 @@ return (
         
         .custom-popup .leaflet-popup-content { margin: 0; width: 100% !important; }
         .custom-popup .leaflet-popup-tip-container { display: none; }
+        .custom-popup .leaflet-popup-close-button { top: 8px; right: 8px; color: #334155; }
         
         /* Tối ưu hóa vùng chạm trên mobile */
         @media (max-width: 768px) {
           .leaflet-marker-icon { cursor: pointer; }
-          .custom-popup { margin-bottom: 25px; }
+          .custom-popup { margin-bottom: 210px; }
+          .custom-popup .leaflet-popup-content-wrapper { border-radius: 1.25rem; }
         }
 
         .scrollbar-hide::-webkit-scrollbar { display: none; }
