@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { getOwnerPlanConfig } = require('../services/ownerPlanService');
 
 const dashboardController = {
   // --- THỐNG KÊ CHO ADMIN (TỔNG QUAN HỆ THỐNG) ---
@@ -68,10 +69,28 @@ const dashboardController = {
         `, [userId])
       ]);
 
+      const [ownerRes, thumbnailUsageRes] = await Promise.all([
+        client.query("SELECT owner_plan FROM users WHERE id = $1", [userId]),
+        client.query("SELECT COUNT(*) FROM pois WHERE owner_id = $1 AND thumbnail_url IS NOT NULL", [userId])
+      ]);
+
+      const ownerPlan = ownerRes.rows[0]?.owner_plan || 'free';
+      const planConfig = getOwnerPlanConfig(ownerPlan);
+      const usedThumbnailUploads = parseInt(thumbnailUsageRes.rows[0].count, 10);
+
       res.json({
         success: true,
         data: {
           totalPois: parseInt(myPoisCount.rows[0].count),
+          ownerPlan,
+          planLimits: {
+            maxThumbnailUploads: planConfig.maxThumbnailUploads,
+            maxAudioRadiusMeters: planConfig.maxAudioRadiusMeters
+          },
+          usage: {
+            usedThumbnailUploads,
+            remainingThumbnailUploads: Math.max(planConfig.maxThumbnailUploads - usedThumbnailUploads, 0)
+          },
           categories: categoryStats.rows,
           translationHealth: translationStatus.rows.map(row => ({
             name: row.name,

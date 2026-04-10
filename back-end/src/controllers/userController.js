@@ -5,7 +5,7 @@ const userController = {
     getAllUsers: async (req, res) => {
         const { role, search } = req.query;
         try {
-            let query = 'SELECT id, username, email, full_name, avatar_url, role, balance, points, created_at FROM users WHERE 1=1';
+            let query = 'SELECT id, username, email, full_name, avatar_url, role, owner_plan, balance, points, created_at FROM users WHERE 1=1';
             const params = [];
 
             if (role) {
@@ -32,7 +32,7 @@ const userController = {
         const { id } = req.params;
         try {
             const result = await pool.query(
-                'SELECT id, username, email, full_name, avatar_url, role, balance, points, created_at FROM users WHERE id = $1',
+                'SELECT id, username, email, full_name, avatar_url, role, owner_plan, balance, points, created_at FROM users WHERE id = $1',
                 [id]
             );
 
@@ -49,16 +49,21 @@ const userController = {
     // 3. Cập nhật thông tin (Admin Update)
     updateUser: async (req, res) => {
         const { id } = req.params;
-        const { full_name, role, points, balance } = req.body;
+        const { full_name, role, owner_plan, points, balance } = req.body;
         try {
+            if (owner_plan && !['free', 'premium'].includes(owner_plan)) {
+                return res.status(400).json({ message: "owner_plan không hợp lệ. Chỉ chấp nhận free hoặc premium" });
+            }
+
             const result = await pool.query(
                 `UPDATE users 
                  SET full_name = COALESCE($1, full_name), 
                      role = COALESCE($2, role), 
-                     points = COALESCE($3, points), 
-                     balance = COALESCE($4, balance)
-                 WHERE id = $5 RETURNING id, full_name, role, points, balance`,
-                [full_name, role, points, balance, id]
+                     owner_plan = COALESCE($3, owner_plan),
+                     points = COALESCE($4, points), 
+                     balance = COALESCE($5, balance)
+                 WHERE id = $6 RETURNING id, full_name, role, owner_plan, points, balance`,
+                [full_name, role, owner_plan, points, balance, id]
             );
 
             if (result.rows.length === 0) {
@@ -67,7 +72,7 @@ const userController = {
 
             res.json({ message: "Cập nhật thành công", user: result.rows[0] });
         } catch (err) {
-            console.log(err.me);
+            console.log(err.message);
             res.status(400).json({ error: err.message });
         }
     },

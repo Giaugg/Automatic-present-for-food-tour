@@ -47,7 +47,7 @@ services:
       - ./front-end:/app
       - /app/node_modules
       - /app/.next
-    command: npm run dev # Next.js sẽ tự động Hot Reload giao diện
+    command: sh -c "npm ci && npm run dev" # Đồng bộ đúng lockfile trước khi chạy Next dev
     # ---------------------------------------
     depends_on:
       - backend

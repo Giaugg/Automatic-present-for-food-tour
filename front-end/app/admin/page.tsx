@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { dashboardApi } from "@/lib/api";
 import { 
   Users, 
@@ -10,24 +11,59 @@ import {
 } from "lucide-react";
 
 export default function AdminPage() {
+  const router = useRouter();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setErrorMessage("Bạn chưa đăng nhập. Vui lòng đăng nhập bằng tài khoản admin.");
+          router.replace("/login");
+          return;
+        }
+
         const res = await dashboardApi.getAdminStats();
-        setStats(res.data.data);
+        setStats(res.data?.data || null);
       } catch (error) {
+        const status = (error as any)?.response?.status;
+
+        if (status === 401) {
+          setErrorMessage("Phiên đăng nhập đã hết hạn hoặc token không hợp lệ. Vui lòng đăng nhập lại.");
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          router.replace("/login");
+          return;
+        }
+
+        if (status === 403) {
+          setErrorMessage("Tài khoản hiện tại không có quyền admin để xem dashboard.");
+          return;
+        }
+
+        setErrorMessage("Không thể tải dữ liệu dashboard. Vui lòng thử lại sau.");
         console.error("Lỗi lấy thống kê:", error);
       } finally {
         setLoading(false);
       }
     };
     fetchStats();
-  }, []);
+  }, [router]);
 
   if (loading) return <div className="p-8">Đang tải dữ liệu...</div>;
+
+  if (errorMessage) {
+    return (
+      <main className="p-8">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+          {errorMessage}
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="p-8 space-y-8">

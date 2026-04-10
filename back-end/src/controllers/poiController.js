@@ -3,6 +3,13 @@ const path = require("path");
 const fs = require("fs");
 const translationService = require("../services/translationService");
 const audioService = require("../services/audioService");
+const { getOwnerPlanConfig } = require("../services/ownerPlanService");
+
+const createPlanLimitError = (message) => {
+    const err = new Error(message);
+    err.status = 403;
+    return err;
+};
 
 const poiController = {
     // 1. GET ALL: Lấy danh sách POI kèm bản dịch theo ngôn ngữ
@@ -12,9 +19,12 @@ const poiController = {
 
             const query = `
                 SELECT 
-                    p.id, p.latitude, p.longitude, p.category, p.thumbnail_url,
-                    pt.name, pt.description, pt.audio_url
+                    p.id, p.latitude, p.longitude, p.trigger_radius_meters, p.category, p.thumbnail_url,
+                    pt.name, pt.description, pt.audio_url,
+                    COALESCE(u.owner_plan, 'free') AS owner_plan,
+                    (COALESCE(u.owner_plan, 'free') = 'premium') AS is_premium_owner
                 FROM pois p
+                LEFT JOIN users u ON u.id = p.owner_id
                 LEFT JOIN languages l ON l.code = $1
                 LEFT JOIN poi_translations pt 
                     ON pt.poi_id = p.id AND pt.language_id = l.id
@@ -92,11 +102,14 @@ const poiController = {
             // Công thức Haversine tính khoảng cách (mét)
             const query = `
                 SELECT p.*, pt.name, pt.description, pt.audio_url,
+                COALESCE(u.owner_plan, 'free') AS owner_plan,
+                (COALESCE(u.owner_plan, 'free') = 'premium') AS is_premium_owner,
                 (6371000 * acos(
                     cos(radians($1)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians($2)) + 
                     sin(radians($1)) * sin(radians(p.latitude))
                 )) AS distance
                 FROM pois p
+                LEFT JOIN users u ON u.id = p.owner_id
                 LEFT JOIN languages l ON l.code = $4
                 LEFT JOIN poi_translations pt ON pt.poi_id = p.id AND pt.language_id = l.id
                 WHERE (
@@ -105,7 +118,7 @@ const poiController = {
                         sin(radians($1)) * sin(radians(p.latitude))
                     )
                 ) <= $3
-                ORDER BY distance ASC
+                ORDER BY is_premium_owner DESC, distance ASC
             `;
             const result = await pool.query(query, [lat, lng, radius, lang]);
             res.json(result.rows);
@@ -151,7 +164,7 @@ const poiController = {
     create: async (req, res) => {
         // 1. Lấy thông tin từ Body và Token
         // Không lấy owner_id từ body để tránh việc user giả mạo ID người khác
-        let { latitude, longitude, category, translations } = req.body;        const userIdFromToken = req.user.id; 
+        let { latitude, longitude, category, translations, trigger_radius_meters } = req.body;        const userIdFromToken = req.user.id; 
         const userRole = req.user.role;
 
         try {
@@ -188,11 +201,37 @@ const poiController = {
                 finalOwnerId = req.body.owner_id;
             }
 
+            const finalRadius = Number.parseInt(trigger_radius_meters, 10) || 30;
+
+            if (userRole === 'owner') {
+                const ownerPlanRes = await client.query(
+                    `SELECT owner_plan FROM users WHERE id = $1`,
+                    [finalOwnerId]
+                );
+                const ownerPlan = ownerPlanRes.rows[0]?.owner_plan || 'free';
+                const planConfig = getOwnerPlanConfig(ownerPlan);
+
+                if (finalRadius > planConfig.maxAudioRadiusMeters) {
+                    throw createPlanLimitError(`Gói ${planConfig.title} chỉ cho phép bán kính audio tối đa ${planConfig.maxAudioRadiusMeters}m.`);
+                }
+
+                if (req.file) {
+                    const thumbnailCountRes = await client.query(
+                        `SELECT COUNT(*) FROM pois WHERE owner_id = $1 AND thumbnail_url IS NOT NULL`,
+                        [finalOwnerId]
+                    );
+                    const usedUploads = Number.parseInt(thumbnailCountRes.rows[0].count, 10);
+                    if (usedUploads >= planConfig.maxThumbnailUploads) {
+                        throw createPlanLimitError(`Gói ${planConfig.title} chỉ cho phép tối đa ${planConfig.maxThumbnailUploads} ảnh.`);
+                    }
+                }
+            }
+
             // 3. Insert POI gốc
             const poiRes = await client.query(`
-                INSERT INTO pois (id, latitude, longitude, category, owner_id, thumbnail_url)
-                VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5) RETURNING id
-            `, [latitude, longitude, category, finalOwnerId, thumbnailUrl]);
+                INSERT INTO pois (id, latitude, longitude, trigger_radius_meters, category, owner_id, thumbnail_url)
+                VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6) RETURNING id
+            `, [latitude, longitude, finalRadius, category, finalOwnerId, thumbnailUrl]);
             
             const poiId = poiRes.rows[0].id;
 
@@ -239,7 +278,7 @@ const poiController = {
 
         } catch (err) {
             await client.query("ROLLBACK");
-            res.status(500).json({ success: false, error: err.message });
+            res.status(err.status || 500).json({ success: false, error: err.message });
         } finally { 
             client.release(); 
         }
@@ -248,7 +287,7 @@ const poiController = {
     // 5. UPDATE: Cập nhật POI và bản dịch (Sử dụng UPSERT)
     update: async (req, res) => {
         const { id } = req.params;
-        let { latitude, longitude, category, translations } = req.body;
+        let { latitude, longitude, category, translations, trigger_radius_meters } = req.body;
         const client = await pool.connect();
 
         try {
@@ -258,6 +297,46 @@ const poiController = {
             }
 
             await client.query("BEGIN");
+
+            const ownerRes = await client.query(`SELECT owner_id FROM pois WHERE id = $1`, [id]);
+            if (ownerRes.rows.length === 0) {
+                throw new Error("POI không tồn tại");
+            }
+
+            const finalOwnerId = ownerRes.rows[0].owner_id;
+            const finalRadius = Number.parseInt(trigger_radius_meters, 10) || 30;
+
+            if (req.user.role === 'owner') {
+                const ownerPlanRes = await client.query(
+                    `SELECT owner_plan FROM users WHERE id = $1`,
+                    [req.user.id]
+                );
+                const ownerPlan = ownerPlanRes.rows[0]?.owner_plan || 'free';
+                const planConfig = getOwnerPlanConfig(ownerPlan);
+
+                if (finalRadius > planConfig.maxAudioRadiusMeters) {
+                    throw createPlanLimitError(`Gói ${planConfig.title} chỉ cho phép bán kính audio tối đa ${planConfig.maxAudioRadiusMeters}m.`);
+                }
+
+                if (req.file) {
+                    const currentThumbRes = await client.query(
+                        `SELECT thumbnail_url FROM pois WHERE id = $1`,
+                        [id]
+                    );
+                    const hasCurrentThumbnail = !!currentThumbRes.rows[0]?.thumbnail_url;
+
+                    if (!hasCurrentThumbnail) {
+                        const thumbnailCountRes = await client.query(
+                            `SELECT COUNT(*) FROM pois WHERE owner_id = $1 AND thumbnail_url IS NOT NULL`,
+                            [req.user.id]
+                        );
+                        const usedUploads = Number.parseInt(thumbnailCountRes.rows[0].count, 10);
+                        if (usedUploads >= planConfig.maxThumbnailUploads) {
+                            throw createPlanLimitError(`Gói ${planConfig.title} chỉ cho phép tối đa ${planConfig.maxThumbnailUploads} ảnh.`);
+                        }
+                    }
+                }
+            }
 
             // 2. Xử lý logic Thumbnail
             let finalThumbnailUrl = req.body.thumbnail_url; // Giữ URL cũ mặc định
@@ -283,9 +362,9 @@ const poiController = {
             // 3. Cập nhật bảng POIs
             await client.query(`
                 UPDATE pois 
-                SET latitude=$1, longitude=$2, category=$3, thumbnail_url=$4 
-                WHERE id=$5
-            `, [latitude, longitude, category, finalThumbnailUrl, id]);
+                SET latitude=$1, longitude=$2, trigger_radius_meters=$3, category=$4, thumbnail_url=$5 
+                WHERE id=$6
+            `, [latitude, longitude, finalRadius, category, finalThumbnailUrl, id]);
 
             // 4. Cập nhật bản dịch (UPSERT)
             if (translations && Array.isArray(translations)) {
@@ -307,7 +386,7 @@ const poiController = {
         } catch (err) {
             await client.query("ROLLBACK");
             console.log("❌ Lỗi Update POI:", err.message);
-            res.status(500).json({ error: err.message });
+            res.status(err.status || 500).json({ error: err.message });
         } finally {
             client.release();
         }

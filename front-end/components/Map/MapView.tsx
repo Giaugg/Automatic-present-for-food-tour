@@ -36,7 +36,7 @@ export default function MapView() {
 
   // 1. Dữ liệu GPS & Audio từ Hệ thống
   const { latitude, longitude } = useGeolocation();
-  const { activeAudioKey, toggleAudio } = useAudioPlayer();
+  const { activeAudioKey, toggleAudio, stopAudio } = useAudioPlayer();
 
   // 2. State quản lý dữ liệu POIs
   const [pois, setPois] = useState<POIWithTranslation[]>([]);
@@ -49,7 +49,7 @@ export default function MapView() {
   const markerRefs = useRef<{ [key: string]: any }>({});
 
   // 4. Custom Hook xử lý Logic Giả lập (AWSD + Auto-Audio)
-  const sim = useMapSimulation(pois, activeAudioKey, toggleAudio);
+  const sim = useMapSimulation(pois, activeAudioKey, toggleAudio, stopAudio);
 
   // 5. Custom Hook xử lý Logic Tìm quán ăn gần đây (Refresh khi di chuyển)
   const currentPos: [number, number] = sim.useManual 
@@ -338,7 +338,7 @@ return (
               {sim.useManual && (
                 <Circle
                   center={[poi.latitude, poi.longitude]}
-                  radius={30}
+                  radius={(poi as any).trigger_radius_meters || 30}
                   pathOptions={{
                     fillColor: sim.targetPoi?.id === poi.id ? "#2563eb" : "#94a3b8",
                     fillOpacity: 0.1,

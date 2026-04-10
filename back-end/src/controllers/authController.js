@@ -10,7 +10,7 @@ exports.register = async (req, res) => {
         const newUser = await pool.query(
             `INSERT INTO users (username, email, password_hash, full_name, role) 
              VALUES ($1, $2, $3, $4, $5) 
-             RETURNING id, username, email, full_name, role, balance, points`,
+             RETURNING id, username, email, full_name, role, owner_plan, balance, points`,
             [username, email, passwordHash, full_name, role || 'visitor']
         );
         
@@ -63,6 +63,7 @@ exports.login = async (req, res) => {
                 email: user.email,
                 full_name: user.full_name,
                 role: user.role,
+                owner_plan: user.owner_plan,
                 balance: parseFloat(user.balance), // Chuyển từ string decimal sang number
                 points: user.points,
                 avatar_url: user.avatar_url
@@ -80,7 +81,7 @@ exports.getMe = async (req, res) => {
     try {
         // Truy vấn đầy đủ các trường cần thiết cho Header/Profile
         const result = await pool.query(
-            `SELECT id, email, full_name, role, balance, points, avatar_url 
+            `SELECT id, email, full_name, role, owner_plan, balance, points, avatar_url 
              FROM users WHERE id = $1`,
             [req.user.id]
         );

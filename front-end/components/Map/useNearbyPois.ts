@@ -12,11 +12,18 @@ export function useNearbyPois(pois: any[], lat: number, lng: number) {
 
     const calculated = pois.map(p => {
       const d = getDistance(lat, lng, p.latitude, p.longitude);
-      return { ...p, distance: d };
+      const ownerPlan = (p.owner_plan || "free").toLowerCase();
+      const isPremiumOwner = Boolean(p.is_premium_owner) || ownerPlan === "premium";
+      return { ...p, distance: d, owner_plan: ownerPlan, is_premium_owner: isPremiumOwner };
     });
 
-    // SẮP XẾP TRƯỚC: Gần nhất lên đầu
-    const sorted = calculated.sort((a, b) => a.distance - b.distance);
+    // Ưu tiên quán premium trước, sau đó mới tới khoảng cách gần nhất.
+    const sorted = calculated.sort((a, b) => {
+      if (a.is_premium_owner !== b.is_premium_owner) {
+        return a.is_premium_owner ? -1 : 1;
+      }
+      return a.distance - b.distance;
+    });
 
     // LỌC: Thử nới lỏng lọc category (Nếu không khớp thì hiện tất cả để debug)
     const foodItems = sorted.filter(p => {

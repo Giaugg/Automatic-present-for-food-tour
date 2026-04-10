@@ -54,6 +54,11 @@ export default function NearbyPanel({ items, onSelect, loading }: NearbyPanelPro
                   {poi.name}
                 </h4>
                 <div className="flex items-center gap-1.5 mt-1">
+                  {poi.owner_plan === "premium" && (
+                    <div className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-md text-[8px] font-black uppercase border border-amber-200">
+                      Premium
+                    </div>
+                  )}
                   <div className="px-1.5 py-0.5 bg-slate-100 rounded-md text-[8px] font-black text-slate-500 uppercase">
                     {poi.category || "Food"}
                   </div>
