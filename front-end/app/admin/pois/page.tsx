@@ -13,7 +13,10 @@ import {
   Trash2, 
   Edit3, 
   Volume2, 
-  Languages 
+  Languages,
+  QrCode,
+  Copy,
+  ExternalLink
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -30,6 +33,7 @@ export default function AdminPOIManagement() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedPoi, setSelectedPoi] = useState<any>(null);
+  const [qrPoi, setQrPoi] = useState<any>(null);
 
   // Refs
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -159,6 +163,21 @@ export default function AdminPOIManagement() {
       fetchPOIs();
     } catch (err) {
       toast.error("Xóa thất bại");
+    }
+  };
+
+  const getPoiQrTargetUrl = (poi: any) => {
+    if (typeof window === "undefined") return "";
+    const lang = localStorage.getItem("preferred_lang") || "vi-VN";
+    return `${window.location.origin}/map/${poi.id}?lang=${encodeURIComponent(lang)}&autoplay=1&src=qr`;
+  };
+
+  const copyQrLink = async (poi: any) => {
+    try {
+      await navigator.clipboard.writeText(getPoiQrTargetUrl(poi));
+      toast.success("Đã copy link QR");
+    } catch (err) {
+      toast.error("Không thể copy link");
     }
   };
 
@@ -297,6 +316,13 @@ export default function AdminPOIManagement() {
                       <Edit3 size={16} className="group-hover:-rotate-12 transition-transform" />
                       Edit
                     </button>
+                    <button
+                      onClick={() => setQrPoi(poi)}
+                      className="flex items-center gap-1.5 hover:text-purple-600 group"
+                    >
+                      <QrCode size={16} className="group-hover:scale-110 transition-transform" />
+                      QR
+                    </button>
                     <button 
                       onClick={() => handleDelete(poi.id)}
                       className="flex items-center gap-1.5 text-red-500 hover:text-red-700 group"
@@ -336,6 +362,58 @@ export default function AdminPOIManagement() {
           languages={languages} 
           onSuccess={fetchPOIs} 
         />
+      )}
+
+      {qrPoi && (
+        <div className="fixed inset-0 z-[2100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-3xl border-4 border-black shadow-[10px_10px_0_0_rgba(0,0,0,1)] p-6 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-500">QR cho quán (Admin)</p>
+                <h3 className="text-xl font-black leading-tight">{qrPoi.name}</h3>
+              </div>
+              <button
+                onClick={() => setQrPoi(null)}
+                className="px-2 py-1 rounded-lg border-2 border-black text-xs font-black"
+              >
+                Đóng
+              </button>
+            </div>
+
+            <div className="rounded-2xl border-2 border-dashed border-slate-300 p-4 bg-slate-50 flex items-center justify-center">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=${encodeURIComponent(getPoiQrTargetUrl(qrPoi))}`}
+                alt={`QR ${qrPoi.name}`}
+                className="w-64 h-64 object-contain"
+              />
+            </div>
+
+            <p className="text-xs text-slate-500 break-all bg-slate-100 rounded-xl p-3 border border-slate-200">
+              {getPoiQrTargetUrl(qrPoi)}
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => copyQrLink(qrPoi)}
+                className="py-2.5 rounded-xl border-2 border-black font-black text-xs uppercase flex items-center justify-center gap-2 hover:bg-slate-50"
+              >
+                <Copy size={14} /> Copy Link
+              </button>
+              <a
+                href={getPoiQrTargetUrl(qrPoi)}
+                target="_blank"
+                rel="noreferrer"
+                className="py-2.5 rounded-xl bg-blue-600 text-white font-black text-xs uppercase flex items-center justify-center gap-2"
+              >
+                <ExternalLink size={14} /> Mở thử
+              </a>
+            </div>
+
+            <p className="text-[11px] text-slate-500">
+              Người dùng quét QR sẽ vào trang chi tiết quán và tự phát audio nếu có file thuyết minh.
+            </p>
+          </div>
+        </div>
       )}
 
       {/* UI Note */}
