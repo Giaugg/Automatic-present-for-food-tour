@@ -93,6 +93,21 @@ export default function OwnerPage() {
         </button>
       </div>
 
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <p className="text-sm text-gray-500 font-medium">Gói tài khoản hiện tại</p>
+            <h3 className="text-xl font-bold uppercase">
+              {stats?.ownerPlan === "premium" ? "Gói trả phí" : "Gói miễn phí"}
+            </h3>
+          </div>
+          <div className="text-sm text-gray-600">
+            <p>Ảnh đã dùng: <span className="font-bold">{stats?.usage?.usedThumbnailUploads ?? 0}</span>/{stats?.planLimits?.maxThumbnailUploads ?? 0}</p>
+            <p>Bán kính audio tối đa: <span className="font-bold">{stats?.planLimits?.maxAudioRadiusMeters ?? 30}m</span></p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid gap-8 md:grid-cols-2">
         {/* 2. Sức khỏe bản dịch (Translation Health) */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">

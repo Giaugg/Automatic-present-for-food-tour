@@ -1,21 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2 } from "lucide-react";
-import { getFileUrl, poiApi } from "@/lib/api";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, Loader2, Pause, Play } from "lucide-react";
+import { getFileUrl, getFullAudioUrl, poiApi } from "@/lib/api";
 import { POIWithTranslation } from "@/types/pois";
+import toast from "react-hot-toast";
 
 export default function PoiDetailPage() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [poi, setPoi] = useState<POIWithTranslation | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [autoplayDone, setAutoplayDone] = useState(false);
+
+  const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const fetchPoi = async () => {
       if (!params?.id) return;
-      const lang = localStorage.getItem("preferred_lang") || "vi-VN";
+      const langFromQuery = searchParams?.get("lang");
+      const lang = langFromQuery || localStorage.getItem("preferred_lang") || "vi-VN";
 
       try {
         const res = await poiApi.getById(params.id, lang);
@@ -28,7 +35,60 @@ export default function PoiDetailPage() {
     };
 
     fetchPoi();
-  }, [params?.id]);
+  }, [params?.id, searchParams]);
+
+  useEffect(() => {
+    return () => {
+      if (audioEl) {
+        audioEl.pause();
+      }
+    };
+  }, [audioEl]);
+
+  const toggleAudio = () => {
+    if (!poi?.audio_url) {
+      toast.error("Quán này chưa có audio thuyết minh.");
+      return;
+    }
+
+    const source = getFullAudioUrl(poi.audio_url);
+    if (!source) {
+      toast.error("Không tìm thấy file audio.");
+      return;
+    }
+
+    if (audioEl && isPlaying) {
+      audioEl.pause();
+      setIsPlaying(false);
+      return;
+    }
+
+    if (audioEl && !isPlaying) {
+      audioEl.play().then(() => setIsPlaying(true)).catch(() => {
+        toast.error("Không thể phát audio.");
+      });
+      return;
+    }
+
+    const freshAudio = new Audio(source);
+    freshAudio.onended = () => setIsPlaying(false);
+    freshAudio.play().then(() => {
+      setAudioEl(freshAudio);
+      setIsPlaying(true);
+    }).catch(() => {
+      toast.error("Không thể phát audio tự động trên thiết bị này.");
+    });
+  };
+
+  useEffect(() => {
+    const shouldAutoplay = searchParams?.get("autoplay") === "1";
+    if (!poi || !shouldAutoplay || autoplayDone) return;
+
+    setAutoplayDone(true);
+    setTimeout(() => {
+      toggleAudio();
+    }, 200);
+  }, [poi, searchParams, autoplayDone]);
 
   if (loading) {
     return (
@@ -80,6 +140,14 @@ export default function PoiDetailPage() {
             <p className="text-slate-600 leading-relaxed">
               {poi.description || "Chua co mo ta chi tiet cho dia diem nay."}
             </p>
+
+            <button
+              onClick={toggleAudio}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black uppercase transition-colors ${isPlaying ? "bg-red-600 text-white" : "bg-slate-900 text-white"}`}
+            >
+              {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+              {isPlaying ? "Dung audio" : "Phat audio"}
+            </button>
 
             <div className="grid grid-cols-2 gap-2 text-sm pt-2">
               <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">

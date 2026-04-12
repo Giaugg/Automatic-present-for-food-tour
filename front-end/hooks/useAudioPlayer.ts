@@ -4,30 +4,32 @@ export function useAudioPlayer() {
   const [activeAudioKey, setActiveAudioKey] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const stopAudio = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setActiveAudioKey(null);
+  }, []);
+
   // Cleanup khi tắt trang
   useEffect(() => {
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
+      stopAudio();
     };
-  }, []);
+  }, [stopAudio]);
 
   const toggleAudio = useCallback((key: string, url: string | null) => {
     if (!url) return;
 
     // Nếu bấm vào đúng cái đang phát -> Dừng
     if (activeAudioKey === key) {
-      audioRef.current?.pause();
-      setActiveAudioKey(null);
+      stopAudio();
       return;
     }
 
     // Dừng cái cũ nếu có
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
+    stopAudio();
 
     // Tạo object audio mới
     const newAudio = new Audio(url);
@@ -40,7 +42,7 @@ export function useAudioPlayer() {
     });
 
     newAudio.onended = () => setActiveAudioKey(null);
-  }, [activeAudioKey]);
+  }, [activeAudioKey, stopAudio]);
 
-  return { activeAudioKey, toggleAudio };
+  return { activeAudioKey, toggleAudio, stopAudio };
 }

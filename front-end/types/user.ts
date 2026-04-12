@@ -1,4 +1,5 @@
 export type UserRole = "admin" | "owner" | "visitor";
+export type OwnerPlan = "free" | "premium";
 
 export interface User {
   id: string;
@@ -8,6 +9,7 @@ export interface User {
   full_name?: string;     // Hiển thị trên Header và Profile
   avatar_url?: string;
   role: UserRole;
+  owner_plan?: OwnerPlan;
   
   // Các trường tài chính & tương tác
   balance: number | string; // Decimal từ Postgres thường là string, cần parseFloat

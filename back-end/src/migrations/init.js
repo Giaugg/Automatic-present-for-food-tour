@@ -38,6 +38,7 @@ const migration = {
           full_name VARCHAR(100),
           avatar_url TEXT,
           role user_role DEFAULT 'visitor',
+          owner_plan VARCHAR(20) DEFAULT 'free',
           balance DECIMAL(15, 2) DEFAULT 0.00,
           points INT DEFAULT 0,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -48,6 +49,7 @@ const migration = {
           owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
           latitude DOUBLE PRECISION NOT NULL,
           longitude DOUBLE PRECISION NOT NULL,
+          trigger_radius_meters INT DEFAULT 30,
           category VARCHAR(50),
           thumbnail_url TEXT,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -88,6 +90,21 @@ const migration = {
           UNIQUE(tour_id, step_order),
           UNIQUE(tour_id, poi_id)
         );
+      `);
+
+      // 2.1. Đồng bộ schema cho database cũ đã tạo trước đó
+      await client.query(`
+        ALTER TABLE users
+          ADD COLUMN IF NOT EXISTS owner_plan VARCHAR(20) DEFAULT 'free';
+
+        ALTER TABLE users
+          DROP CONSTRAINT IF EXISTS users_owner_plan_check;
+
+        ALTER TABLE users
+          ADD CONSTRAINT users_owner_plan_check CHECK (owner_plan IN ('free', 'premium'));
+
+        ALTER TABLE pois
+          ADD COLUMN IF NOT EXISTS trigger_radius_meters INT DEFAULT 30;
       `);
 
       // 3. Chèn dữ liệu mẫu (Seeding)
@@ -159,16 +176,16 @@ const migration = {
       // --- 3.2 Users (3 users) ---
       // 4. Seed Users (Bổ sung username và points)
       const userData = [
-        ['115e99e8-93b8-493e-94aa-5d3c81911820', 'admin', 'admin@foodtour.com', passwordhash, 'System Admin', 'admin', 1000],
-        ['225e99e8-93b8-493e-94aa-5d3c81911821', 'owner', 'owner@saigonmap.com', passwordhash, 'Saigon Guide Owner', 'owner', 500],
-        ['335e99e8-93b8-493e-94aa-5d3c81911822', 'visitor', 'visitor@gmail.com', passwordhash, 'Nguyen Van A', 'visitor', 0]
+        ['115e99e8-93b8-493e-94aa-5d3c81911820', 'admin', 'admin@foodtour.com', passwordhash, 'System Admin', 'admin', 'premium', 1000],
+        ['225e99e8-93b8-493e-94aa-5d3c81911821', 'owner', 'owner@saigonmap.com', passwordhash, 'Saigon Guide Owner', 'owner', 'free', 500],
+        ['335e99e8-93b8-493e-94aa-5d3c81911822', 'visitor', 'visitor@gmail.com', passwordhash, 'Nguyen Van A', 'visitor', 'free', 0]
       ];
 
       for (const u of userData) {
         await client.query(
-          `INSERT INTO users (id, username, email, password_hash, full_name, role, points) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7) 
-           ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+          `INSERT INTO users (id, username, email, password_hash, full_name, role, owner_plan, points) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+           ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, owner_plan = EXCLUDED.owner_plan`,
           u
         );
       }

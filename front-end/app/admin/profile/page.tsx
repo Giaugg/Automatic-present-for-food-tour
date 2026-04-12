@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { User, UserRole } from "@/types/user";
+import { OwnerPlan, User, UserRole } from "@/types/user";
 import { userApi, authApi } from "@/lib/api";
 import { toast } from "react-hot-toast"; // Hoặc alert bình thường
 
@@ -20,6 +20,7 @@ export default function AdminUserManagement() {
     password: "",
     full_name: "",
     role: "visitor" as UserRole,
+    owner_plan: "free" as OwnerPlan,
   });
 
   useEffect(() => {
@@ -50,10 +51,11 @@ export default function AdminUserManagement() {
         password: "", // Không sửa password ở đây
         full_name: user.full_name || "",
         role: user.role,
+        owner_plan: user.owner_plan || "free",
       });
     } else {
       setEditingUser(null);
-      setFormData({ username: "", email: "", password: "", full_name: "", role: "visitor" });
+      setFormData({ username: "", email: "", password: "", full_name: "", role: "visitor", owner_plan: "free" });
     }
     setIsModalOpen(true);
   };
@@ -62,11 +64,17 @@ export default function AdminUserManagement() {
     e.preventDefault();
     try {
       if (editingUser) {
-        // Cập nhật
-        await userApi.update(editingUser.id, {
+        const payload: Partial<User> = {
           full_name: formData.full_name,
-          role: formData.role
-        });
+          role: formData.role,
+        };
+
+        if (formData.role === "owner") {
+          payload.owner_plan = formData.owner_plan;
+        }
+
+        // Cập nhật
+        await userApi.update(editingUser.id, payload);
         toast.success("Cập nhật thành công");
       } else {
         // Thêm mới (Sử dụng API register hiện có hoặc admin create)
@@ -124,6 +132,7 @@ export default function AdminUserManagement() {
             <tr>
               <th className="p-5">Thành viên</th>
               <th className="p-5">Vai trò</th>
+              <th className="p-5">Gói owner</th>
               <th className="p-5">Số dư</th>
               <th className="p-5">Điểm</th>
               <th className="p-5 text-right">Thao tác</th>
@@ -137,6 +146,15 @@ export default function AdminUserManagement() {
                   <div className="text-xs text-muted-foreground">{u.email}</div>
                 </td>
                 <td className="p-5 capitalize font-medium">{u.role}</td>
+                <td className="p-5">
+                  {u.role === "owner" ? (
+                    <span className={`px-2 py-1 rounded-lg text-xs font-bold uppercase ${u.owner_plan === "premium" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                      {u.owner_plan || "free"}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                  )}
+                </td>
                 <td className="p-5 font-bold text-emerald-600">{Number(u.balance).toLocaleString()}đ</td>
                 <td className="p-5 font-bold text-orange-600">{u.points} ⭐</td>
                 <td className="p-5 text-right space-x-2">
@@ -205,6 +223,22 @@ export default function AdminUserManagement() {
                   <option value="owner">Owner</option>
                   <option value="admin">Admin</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-black text-muted-foreground uppercase">Gói owner</label>
+                <select
+                  className="w-full mt-1 px-4 py-3 bg-muted/30 border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary font-bold disabled:opacity-60"
+                  value={formData.owner_plan}
+                  onChange={e => setFormData({ ...formData, owner_plan: e.target.value as OwnerPlan })}
+                  disabled={formData.role !== "owner"}
+                >
+                  <option value="free">Free</option>
+                  <option value="premium">Premium</option>
+                </select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Chỉ áp dụng khi vai trò là owner.
+                </p>
               </div>
 
               <div className="pt-4 flex gap-3">
