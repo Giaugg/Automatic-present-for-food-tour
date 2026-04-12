@@ -62,6 +62,32 @@ const migration = {
           audio_url TEXT DEFAULT NULL,
           UNIQUE(poi_id, language_id)
         );
+
+        CREATE TABLE IF NOT EXISTS tours (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          price DECIMAL(15, 2) DEFAULT 0.00,
+          thumbnail_url TEXT,
+          is_active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS tour_translations (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          tour_id UUID REFERENCES tours(id) ON DELETE CASCADE,
+          language_code VARCHAR(10) NOT NULL,
+          title VARCHAR(255) NOT NULL,
+          summary TEXT,
+          UNIQUE(tour_id, language_code)
+        );
+
+        CREATE TABLE IF NOT EXISTS tour_items (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          tour_id UUID REFERENCES tours(id) ON DELETE CASCADE,
+          poi_id UUID REFERENCES pois(id) ON DELETE CASCADE,
+          step_order INT NOT NULL,
+          UNIQUE(tour_id, step_order),
+          UNIQUE(tour_id, poi_id)
+        );
       `);
 
       // 3. Chèn dữ liệu mẫu (Seeding)
@@ -192,6 +218,51 @@ const migration = {
         }
       }
 
+      // --- 3.4 Tours (1 tour mau + lo trinh 3 diem) ---
+      const sampleTourId = 'de7e0dfd-e1ac-404b-81a2-69eb9fff124d';
+
+      await client.query(
+        `INSERT INTO tours (id, price, thumbnail_url, is_active)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (id) DO UPDATE SET
+           price = EXCLUDED.price,
+           thumbnail_url = EXCLUDED.thumbnail_url,
+           is_active = EXCLUDED.is_active`,
+        [sampleTourId, 99000, '/uploads/thumbnails/tour-q1.jpg', true]
+      );
+
+      const tourTranslations = [
+        ['vi-VN', 'Food Tour Quan 1', 'Hanh trinh kham pha 3 diem noi bat tai trung tam Quan 1.'],
+        ['en-US', 'District 1 Food Tour', 'A curated route across three iconic spots in District 1.'],
+        ['ja-JP', '1区フードツアー', 'ホーチミン1区の人気スポット3か所を巡るツアーです。']
+      ];
+
+      for (const [languageCode, title, summary] of tourTranslations) {
+        await client.query(
+          `INSERT INTO tour_translations (tour_id, language_code, title, summary)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (tour_id, language_code)
+           DO UPDATE SET title = EXCLUDED.title, summary = EXCLUDED.summary`,
+          [sampleTourId, languageCode, title, summary]
+        );
+      }
+
+      const tourItems = [
+        ['ae7e0dfd-e1ac-404b-81a2-69eb9fff124a', 1],
+        ['be7e0dfd-e1ac-404b-81a2-69eb9fff124b', 2],
+        ['ce7e0dfd-e1ac-404b-81a2-69eb9fff124c', 3]
+      ];
+
+      for (const [poiId, stepOrder] of tourItems) {
+        await client.query(
+          `INSERT INTO tour_items (tour_id, poi_id, step_order)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (tour_id, step_order)
+           DO UPDATE SET poi_id = EXCLUDED.poi_id`,
+          [sampleTourId, poiId, stepOrder]
+        );
+      }
+
       await client.query('COMMIT');
       console.log('✅ UP thành công! Database đã sẵn sàng với 3 địa điểm tại Quận 1.');
     } catch (err) {
@@ -210,6 +281,9 @@ const migration = {
       await client.query('BEGIN');
       console.log("🗑️ [MIGRATION] Đang dọn dẹp Database...");
       await client.query(`
+        DROP TABLE IF EXISTS tour_items CASCADE;
+        DROP TABLE IF EXISTS tour_translations CASCADE;
+        DROP TABLE IF EXISTS tours CASCADE;
         DROP TABLE IF EXISTS poi_translations CASCADE;
         DROP TABLE IF EXISTS pois CASCADE;
         DROP TABLE IF EXISTS languages CASCADE;

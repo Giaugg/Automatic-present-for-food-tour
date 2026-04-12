@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const tourController = require('../controllers/tourController');
+const upload = require('../middlewares/uploadMiddleware');
 
 // Import middleware hợp nhất
 const { authMiddleware, authorize } = require('../middlewares/authMiddleware');
@@ -42,6 +43,14 @@ router.delete('/:id',
     authMiddleware, 
     authorize('admin'), 
     tourController.deleteTour
+);
+
+// Upload thumbnail cho tour
+router.post('/upload-thumbnail',
+    authMiddleware,
+    authorize('admin'),
+    upload.single('thumbnail'),
+    tourController.uploadTourThumbnail
 );
 
 module.exports = router;

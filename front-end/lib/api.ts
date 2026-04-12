@@ -119,11 +119,16 @@ export const poiApi = {
 };
 
 export const tourApi = {
-  getAll: (lang: string = 'vi-VN') => api.get<Tour[]>('/tours', { params: { lang } }),
+  getAll: (lang: string = 'vi-VN', includeInactive: boolean = false) =>
+    api.get<Tour[]>('/tours', { params: { lang, include_inactive: includeInactive } }),
   getDetails: (id: string, lang: string = 'vi-VN') => api.get<Tour>(`/tours/${id}`, { params: { lang } }),
   create: (data: CreateTourDTO) => api.post<{ id: string; message: string }>('/tours', data),
   update: (id: string, data: Partial<CreateTourDTO>) => api.put<{ message: string }>(`/tours/${id}`, data),
   updateSchedule: (tourId: string, data: UpdateTourScheduleDTO) => api.put<{ message: string }>(`/tours/${tourId}/schedule`, data),
+  uploadThumbnail: (formData: FormData) =>
+    api.post<{ message: string; thumbnail_url: string }>('/tours/upload-thumbnail', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
   delete: (id: string) => api.delete<{ message: string }>(`/tours/${id}`),
 };
 
