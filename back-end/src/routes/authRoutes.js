@@ -20,4 +20,10 @@ router.post('/login', authLimiter, authController.login);
 // Middleware sẽ gán thông tin user vào req.user trước khi vào controller
 router.get('/me', authMiddleware, authController.getMe);
 
+// User tự nạp tiền vào ví
+router.post('/topup', authMiddleware, authController.topUpBalance);
+
+// User xem lịch sử giao dịch ví
+router.get('/wallet-transactions', authMiddleware, authController.getMyWalletTransactions);
+
 module.exports = router;

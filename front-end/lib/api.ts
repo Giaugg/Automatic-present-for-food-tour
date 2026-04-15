@@ -3,7 +3,7 @@ import { Language } from '../types/language';
 import { AuthResponse, LoginCredentials, RegisterCredentials } from '../types/auth';
 import { User, UpdateProfileDTO } from '../types/user';
 import { POIWithTranslation } from '../types/pois';
-import { Tour, CreateTourDTO, UpdateTourScheduleDTO } from '../types/tour';
+import { Tour, CreateTourDTO, UpdateTourScheduleDTO, TourPurchase } from '../types/tour';
 import { clear } from 'console';
 import { clearPreviewData } from 'next/dist/server/api-utils';
 
@@ -85,6 +85,30 @@ export const authApi = {
   login: (data: LoginCredentials) => api.post<AuthResponse>('/auth/login', data),
   getMe: () => api.get<User>('/auth/me'),
   updateProfile: (data: UpdateProfileDTO) => api.put<User>('/auth/profile', data),
+  topUp: (amount: number) => api.post<{
+    message: string;
+    balance: number;
+    transaction: {
+      id: string;
+      txn_type: string;
+      amount: number | string;
+      balance_before: number | string;
+      balance_after: number | string;
+      created_at: string;
+    };
+  }>('/auth/topup', { amount }),
+  getWalletTransactions: (limit: number = 20) =>
+    api.get<Array<{
+      id: string;
+      txn_type: string;
+      amount: number | string;
+      balance_before: number | string;
+      balance_after: number | string;
+      note?: string;
+      created_at: string;
+      ref_type?: string;
+      ref_id?: string;
+    }>>('/auth/wallet-transactions', { params: { limit } }),
 };
 
 export const languageApi = {
@@ -122,6 +146,13 @@ export const tourApi = {
   getAll: (lang: string = 'vi-VN', includeInactive: boolean = false) =>
     api.get<Tour[]>('/tours', { params: { lang, include_inactive: includeInactive } }),
   getDetails: (id: string, lang: string = 'vi-VN') => api.get<Tour>(`/tours/${id}`, { params: { lang } }),
+  getMyPurchases: (lang: string = 'vi-VN') => api.get<TourPurchase[]>('/tours/my/purchases', { params: { lang } }),
+  purchase: (id: string) => api.post<{
+    message: string;
+    purchase: { id: string; purchased_at: string; status: string };
+    wallet: { previous_balance: number; current_balance: number };
+    reward_points: number;
+  }>(`/tours/${id}/purchase`),
   create: (data: CreateTourDTO) => api.post<{ id: string; message: string }>('/tours', data),
   update: (id: string, data: Partial<CreateTourDTO>) => api.put<{ message: string }>(`/tours/${id}`, data),
   updateSchedule: (tourId: string, data: UpdateTourScheduleDTO) => api.put<{ message: string }>(`/tours/${tourId}/schedule`, data),

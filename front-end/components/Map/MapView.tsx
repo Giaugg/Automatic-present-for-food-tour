@@ -5,10 +5,12 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-le
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 // API & Types
-import { poiApi, getFileUrl } from "@/lib/api";
+import { poiApi, getFileUrl, tourApi } from "@/lib/api";
 import { POIWithTranslation } from "@/types/pois";
+import { Tour } from "@/types/tour";
 
 // Hooks & Utils
 import { useGeolocation } from "@/hooks/useGeolocation";
@@ -44,6 +46,14 @@ export default function MapView() {
   const [isMounted, setIsMounted] = useState(false);
   const [isSidebarClosed, setIsSidebarClosed] = useState(false);
   const [recentPois, setRecentPois] = useState<POIWithTranslation[]>([]);
+  const [tours, setTours] = useState<Tour[]>([]);
+  const [purchasedTourIds, setPurchasedTourIds] = useState<string[]>([]);
+  const [buyingTourId, setBuyingTourId] = useState<string | null>(null);
+  const [insufficientFundsInfo, setInsufficientFundsInfo] = useState<{
+    message: string;
+    required?: number;
+    currentBalance?: number;
+  } | null>(null);
 
   // 3. Ref để quản lý Marker (Dùng để mở Popup từ Nearby Panel)
   const markerRefs = useRef<{ [key: string]: any }>({});
@@ -82,9 +92,38 @@ export default function MapView() {
     }
   }, []);
 
+  const loadTours = useCallback(async () => {
+    const lang = localStorage.getItem("preferred_lang") || "vi-VN";
+    try {
+      const tourRes = await tourApi.getAll(lang, false);
+      setTours(tourRes.data || []);
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setPurchasedTourIds([]);
+        return;
+      }
+
+      try {
+        const myPurchaseRes = await tourApi.getMyPurchases(lang);
+        const ids = (myPurchaseRes.data || []).map((p) => p.tour_id);
+        setPurchasedTourIds(ids);
+      } catch (err) {
+        // Token có thể hết hạn; không chặn map load.
+        setPurchasedTourIds([]);
+      }
+    } catch (err) {
+      console.error("Lỗi tải danh sách tour:", err);
+    }
+  }, []);
+
   useEffect(() => {
     if (isMounted) loadPois();
   }, [isMounted, loadPois]);
+
+  useEffect(() => {
+    if (isMounted) loadTours();
+  }, [isMounted, loadTours]);
 
   useEffect(() => {
     if (!isMounted || loading) return;
@@ -131,6 +170,45 @@ export default function MapView() {
     router.push(`/map/${poiId}`);
   };
 
+  const handleBuyTour = async (tourId: string) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Vui lòng đăng nhập để mua tour");
+      router.push("/login");
+      return;
+    }
+
+    setInsufficientFundsInfo(null);
+    setBuyingTourId(tourId);
+    try {
+      await tourApi.purchase(tourId);
+      setPurchasedTourIds((prev) => (prev.includes(tourId) ? prev : [...prev, tourId]));
+      toast.success("Mua tour thành công");
+    } catch (error: any) {
+      const responseData = error?.response?.data || {};
+      const message = responseData?.message || responseData?.error || "Mua tour thất bại";
+      const required = Number(responseData?.required);
+      const currentBalance = Number(responseData?.current_balance);
+
+      if (
+        String(message).toLowerCase().includes("không đủ") ||
+        String(message).toLowerCase().includes("khong du") ||
+        Number.isFinite(required) ||
+        Number.isFinite(currentBalance)
+      ) {
+        setInsufficientFundsInfo({
+          message,
+          required: Number.isFinite(required) ? required : undefined,
+          currentBalance: Number.isFinite(currentBalance) ? currentBalance : undefined,
+        });
+      }
+
+      toast.error(message);
+    } finally {
+      setBuyingTourId(null);
+    }
+  };
+
   const isMobileViewport = isMounted && typeof window !== "undefined" && window.innerWidth < 768;
   const popupOffset: [number, number] = isMobileViewport ? [0, -220] : [0, -170];
 
@@ -174,6 +252,76 @@ return (
             moveSpeed={sim.moveSpeed} 
             setMoveSpeed={sim.setMoveSpeed}
           />
+        </div>
+      </div>
+
+      {/* TOUR BUY PANEL */}
+      <div className="fixed top-[76px] left-4 right-4 md:left-auto md:right-4 md:top-[145px] md:w-[360px] z-[1002] pointer-events-auto">
+        <div className="rounded-3xl bg-white/95 backdrop-blur-xl border border-white/70 shadow-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 bg-gradient-to-r from-emerald-50 to-blue-50">
+            <p className="text-[11px] font-black tracking-widest uppercase text-slate-500">Tour Store</p>
+            <h3 className="text-base font-black text-slate-800">Mua tour ngay tren ban do</h3>
+          </div>
+
+          {insufficientFundsInfo && (
+            <div className="mx-3 mt-3 rounded-2xl border border-amber-300 bg-amber-50 p-3">
+              <p className="text-xs font-bold text-amber-800">{insufficientFundsInfo.message}</p>
+              {(typeof insufficientFundsInfo.required === "number" || typeof insufficientFundsInfo.currentBalance === "number") && (
+                <p className="mt-1 text-[11px] text-amber-700">
+                  Can: {Number(insufficientFundsInfo.required || 0).toLocaleString("vi-VN")}d | Hien co: {Number(insufficientFundsInfo.currentBalance || 0).toLocaleString("vi-VN")}d
+                </p>
+              )}
+              <button
+                onClick={() => router.push("/wallet")}
+                className="mt-2 inline-flex items-center rounded-xl bg-amber-600 px-3 py-1.5 text-[11px] font-black text-white hover:bg-amber-500"
+              >
+                Nap tien ngay
+              </button>
+            </div>
+          )}
+
+          <div className="max-h-[34vh] md:max-h-[42vh] overflow-y-auto p-3 space-y-2 scrollbar-hide">
+            {tours.length === 0 && (
+              <p className="text-sm text-slate-500 px-2 py-3">Chua co tour dang mo ban.</p>
+            )}
+
+            {tours.map((tour) => {
+              const isPurchased = purchasedTourIds.includes(tour.id);
+              const isBuying = buyingTourId === tour.id;
+
+              return (
+                <div key={tour.id} className="rounded-2xl border border-slate-100 bg-white p-3 flex items-start gap-3">
+                  <img
+                    src={getFileUrl(tour.thumbnail_url || null)}
+                    alt={tour.title || "tour-thumbnail"}
+                    className="w-14 h-14 rounded-xl object-cover border border-slate-100"
+                  />
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate">{tour.title || "Tour khong ten"}</p>
+                    <p className="text-xs text-slate-500 line-clamp-1">{tour.summary || "Khong co mo ta"}</p>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <span className="text-xs font-black text-emerald-700">
+                        {Number(tour.price || 0).toLocaleString("vi-VN")}d
+                      </span>
+
+                      <button
+                        onClick={() => handleBuyTour(tour.id)}
+                        disabled={isPurchased || isBuying}
+                        className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-all ${
+                          isPurchased
+                            ? "bg-emerald-100 text-emerald-700 cursor-not-allowed"
+                            : "bg-blue-600 text-white hover:bg-blue-500"
+                        } ${isBuying ? "opacity-60 cursor-wait" : ""}`}
+                      >
+                        {isPurchased ? "Da mua" : isBuying ? "Dang mua..." : "Mua tour"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 

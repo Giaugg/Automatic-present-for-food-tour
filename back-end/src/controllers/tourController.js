@@ -46,6 +46,11 @@ const validateScheduleItems = (items) => {
     return null;
 };
 
+const toNumber = (value, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
 // 1. Lấy danh sách tất cả các tour (kèm bản dịch theo ngôn ngữ)
 exports.getAllTours = async (req, res) => {
     const lang = normalizeLangCode(req.query.lang || 'vi-VN');
@@ -261,5 +266,170 @@ exports.uploadTourThumbnail = async (req, res) => {
         res.status(201).json({ message: 'Upload thumbnail thành công', thumbnail_url: thumbnailUrl });
     } catch (err) {
         res.status(500).json({ error: 'Lỗi upload thumbnail: ' + err.message });
+    }
+};
+
+// 2.1. Lấy lịch sử mua tour của user hiện tại
+exports.getMyPurchases = async (req, res) => {
+    const lang = normalizeLangCode(req.query.lang || 'vi-VN');
+    const userId = req.user?.id;
+
+    if (!userId) {
+        return res.status(401).json({ message: 'Chưa xác thực danh tính' });
+    }
+
+    try {
+        const result = await pool.query(
+            `SELECT
+                tp.id AS purchase_id,
+                tp.tour_id,
+                tp.purchase_price,
+                tp.status,
+                tp.progress_step,
+                tp.completed_at,
+                tp.purchased_at,
+                t.thumbnail_url,
+                t.is_active,
+                tt.title,
+                tt.summary,
+                COALESCE(step_counts.total_steps, 0) AS total_steps
+             FROM tour_purchases tp
+             JOIN tours t ON t.id = tp.tour_id
+             LEFT JOIN tour_translations tt
+                ON tt.tour_id = t.id AND tt.language_code = $2
+             LEFT JOIN (
+                SELECT tour_id, COUNT(*)::INT AS total_steps
+                FROM tour_items
+                GROUP BY tour_id
+             ) step_counts ON step_counts.tour_id = t.id
+             WHERE tp.user_id = $1::UUID
+             ORDER BY tp.purchased_at DESC`,
+            [userId, lang]
+        );
+
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: 'Lỗi lấy lịch sử mua tour: ' + err.message });
+    }
+};
+
+// 2.2. Mua tour bằng ví người dùng
+exports.purchaseTour = async (req, res) => {
+    const userId = req.user?.id;
+    const { id: tourId } = req.params;
+
+    if (!userId) {
+        return res.status(401).json({ message: 'Chưa xác thực danh tính' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const tourResult = await client.query(
+            'SELECT id, price, is_active FROM tours WHERE id = $1::UUID',
+            [tourId]
+        );
+
+        if (tourResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Không tìm thấy tour' });
+        }
+
+        const tour = tourResult.rows[0];
+        if (!tour.is_active) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Tour hiện không còn hoạt động' });
+        }
+
+        const duplicateResult = await client.query(
+            `SELECT id
+             FROM tour_purchases
+             WHERE user_id = $1::UUID AND tour_id = $2::UUID AND status = 'paid'
+             LIMIT 1`,
+            [userId, tourId]
+        );
+
+        if (duplicateResult.rows.length > 0) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ message: 'Bạn đã mua tour này rồi' });
+        }
+
+        const userResult = await client.query(
+            'SELECT balance, points FROM users WHERE id = $1::UUID FOR UPDATE',
+            [userId]
+        );
+
+        if (userResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Người dùng không tồn tại' });
+        }
+
+        const currentBalance = toNumber(userResult.rows[0].balance);
+        const tourPrice = toNumber(tour.price);
+
+        if (currentBalance < tourPrice) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+                message: 'Số dư không đủ để mua tour',
+                required: tourPrice,
+                current_balance: currentBalance,
+            });
+        }
+
+        const nextBalance = currentBalance - tourPrice;
+        const rewardPoints = Math.floor(tourPrice / 10000);
+
+        const purchaseResult = await client.query(
+            `INSERT INTO tour_purchases (user_id, tour_id, purchase_price, status)
+             VALUES ($1::UUID, $2::UUID, $3::DECIMAL, 'paid')
+             RETURNING id, purchased_at, status`,
+            [userId, tourId, tourPrice]
+        );
+
+        await client.query(
+            `UPDATE users
+             SET balance = $1::DECIMAL,
+                 points = points + $2::INT
+             WHERE id = $3::UUID`,
+            [nextBalance, rewardPoints, userId]
+        );
+
+        await client.query(
+            `INSERT INTO wallet_transactions
+                (user_id, txn_type, amount, balance_before, balance_after, ref_type, ref_id, note)
+             VALUES
+                ($1::UUID, 'tour_purchase', $2::DECIMAL, $3::DECIMAL, $4::DECIMAL, 'tour_purchase', $5::UUID, $6)`,
+            [
+                userId,
+                -tourPrice,
+                currentBalance,
+                nextBalance,
+                purchaseResult.rows[0].id,
+                `Thanh toán tour ${tourId}`,
+            ]
+        );
+
+        await client.query('COMMIT');
+
+        res.status(201).json({
+            message: 'Mua tour thành công',
+            purchase: purchaseResult.rows[0],
+            wallet: {
+                previous_balance: currentBalance,
+                current_balance: nextBalance,
+            },
+            reward_points: rewardPoints,
+        });
+    } catch (err) {
+        await client.query('ROLLBACK');
+
+        if (err.code === '23505') {
+            return res.status(409).json({ message: 'Bạn đã mua tour này rồi' });
+        }
+
+        res.status(500).json({ error: 'Lỗi mua tour: ' + err.message });
+    } finally {
+        client.release();
     }
 };

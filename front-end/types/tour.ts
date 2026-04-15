@@ -43,3 +43,20 @@ export interface UpdateTourScheduleDTO {
     step_order: number;
   }[];
 }
+
+export type TourPurchaseStatus = "paid" | "completed" | "refunded";
+
+export interface TourPurchase {
+  purchase_id: string;
+  tour_id: string;
+  purchase_price: number | string;
+  status: TourPurchaseStatus;
+  progress_step: number;
+  total_steps: number;
+  completed_at?: string | null;
+  purchased_at: string;
+  thumbnail_url?: string;
+  is_active?: boolean;
+  title?: string;
+  summary?: string;
+}

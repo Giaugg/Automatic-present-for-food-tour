@@ -90,6 +90,33 @@ const migration = {
           UNIQUE(tour_id, step_order),
           UNIQUE(tour_id, poi_id)
         );
+
+        CREATE TABLE IF NOT EXISTS tour_purchases (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+          tour_id UUID REFERENCES tours(id) ON DELETE CASCADE,
+          purchase_price DECIMAL(15, 2) NOT NULL,
+          status VARCHAR(20) NOT NULL DEFAULT 'paid',
+          progress_step INT DEFAULT 0,
+          completed_at TIMESTAMP WITH TIME ZONE,
+          purchased_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, tour_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS wallet_transactions (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+          txn_type VARCHAR(30) NOT NULL,
+          amount DECIMAL(15, 2) NOT NULL,
+          balance_before DECIMAL(15, 2) NOT NULL,
+          balance_after DECIMAL(15, 2) NOT NULL,
+          ref_type VARCHAR(30),
+          ref_id UUID,
+          note TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
       `);
 
       // 2.1. Đồng bộ schema cho database cũ đã tạo trước đó
@@ -105,6 +132,22 @@ const migration = {
 
         ALTER TABLE pois
           ADD COLUMN IF NOT EXISTS trigger_radius_meters INT DEFAULT 30;
+
+        ALTER TABLE tour_purchases
+          ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'paid',
+          ADD COLUMN IF NOT EXISTS progress_step INT DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE,
+          ADD COLUMN IF NOT EXISTS purchased_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_tour_purchases_user_purchased_at
+          ON tour_purchases (user_id, purchased_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_tour_purchases_tour_purchased_at
+          ON tour_purchases (tour_id, purchased_at DESC);
       `);
 
       // 3. Chèn dữ liệu mẫu (Seeding)
@@ -298,6 +341,8 @@ const migration = {
       await client.query('BEGIN');
       console.log("🗑️ [MIGRATION] Đang dọn dẹp Database...");
       await client.query(`
+        DROP TABLE IF EXISTS wallet_transactions CASCADE;
+        DROP TABLE IF EXISTS tour_purchases CASCADE;
         DROP TABLE IF EXISTS tour_items CASCADE;
         DROP TABLE IF EXISTS tour_translations CASCADE;
         DROP TABLE IF EXISTS tours CASCADE;
