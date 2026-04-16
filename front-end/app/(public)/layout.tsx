@@ -104,7 +104,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="bg-card border-b border-border sticky top-0 z-[1001] shadow-sm">
+      <header className="bg-card border-b border-border sticky top-0 z-[3000] shadow-sm">
         <nav className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <Link href="/" className="text-2xl font-black text-primary tracking-tighter">
@@ -147,7 +147,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               </button>
               
               {!isLoadingLangs && activeLanguages.length > 0 && (
-                <div className="absolute right-0 top-full pt-2 w-60 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[1002]">
+                <div className="absolute right-0 top-full pt-2 w-60 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[3010]">
                   <div className="bg-card border border-border rounded-xl shadow-xl overflow-hidden p-1">
                     {activeLanguages.map((lang) => (
                       <button
@@ -186,7 +186,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                     </div>
                   </button>
 
-                  <div className="absolute right-0 top-full pt-2 w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[1002]">
+                  <div className="absolute right-0 top-full pt-2 w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[3010]">
                     <div className="bg-card border border-border rounded-2xl shadow-xl overflow-hidden">
                       <div className="px-4 py-3 bg-muted/20 border-b border-border text-foreground">
                         <p className="text-sm font-bold truncate">{user.full_name}</p>

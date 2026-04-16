@@ -60,6 +60,7 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/pois', require('./routes/poiRoutes'));
 app.use('/api/tours', require('./routes/tourRoutes'));
+app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/languages', require('./routes/languageRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 // API nhận diện thiết bị khi client truy cập.

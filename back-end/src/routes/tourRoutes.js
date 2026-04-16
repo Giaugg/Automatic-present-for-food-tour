@@ -17,6 +17,12 @@ router.get('/my/purchases',
     tourController.getMyPurchases
 );
 
+// Cập nhật tiến độ tour đã mua
+router.patch('/my/purchases/:purchaseId/progress',
+    authMiddleware,
+    tourController.updateMyPurchaseProgress
+);
+
 // Lấy chi tiết 1 tour cụ thể kèm lộ trình POIs (Ví dụ: /api/tours/uuid-cua-tour?lang=vi)
 router.get('/:id', tourController.getTourDetails);
 

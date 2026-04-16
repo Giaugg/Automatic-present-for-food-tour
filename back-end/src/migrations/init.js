@@ -117,6 +117,19 @@ const migration = {
           note TEXT,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS payment_orders (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          provider VARCHAR(30) NOT NULL,
+          app_trans_id VARCHAR(64) UNIQUE NOT NULL,
+          user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+          amount DECIMAL(15, 2) NOT NULL,
+          status VARCHAR(20) NOT NULL DEFAULT 'pending',
+          gateway_response JSONB,
+          paid_at TIMESTAMP WITH TIME ZONE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
       `);
 
       // 2.1. Đồng bộ schema cho database cũ đã tạo trước đó
@@ -140,6 +153,14 @@ const migration = {
           ADD COLUMN IF NOT EXISTS purchased_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+
+        ALTER TABLE payment_orders
+          ADD COLUMN IF NOT EXISTS provider VARCHAR(30) DEFAULT 'zalopay',
+          ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending',
+          ADD COLUMN IF NOT EXISTS gateway_response JSONB,
+          ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP WITH TIME ZONE,
+          ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
       `);
 
       await client.query(`
@@ -148,6 +169,12 @@ const migration = {
 
         CREATE INDEX IF NOT EXISTS idx_tour_purchases_tour_purchased_at
           ON tour_purchases (tour_id, purchased_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_payment_orders_user_created_at
+          ON payment_orders (user_id, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_payment_orders_status
+          ON payment_orders (status);
       `);
 
       // 3. Chèn dữ liệu mẫu (Seeding)
@@ -341,6 +368,7 @@ const migration = {
       await client.query('BEGIN');
       console.log("🗑️ [MIGRATION] Đang dọn dẹp Database...");
       await client.query(`
+        DROP TABLE IF EXISTS payment_orders CASCADE;
         DROP TABLE IF EXISTS wallet_transactions CASCADE;
         DROP TABLE IF EXISTS tour_purchases CASCADE;
         DROP TABLE IF EXISTS tour_items CASCADE;

@@ -433,3 +433,80 @@ exports.purchaseTour = async (req, res) => {
         client.release();
     }
 };
+
+// 2.3. Cập nhật tiến độ tour đã mua
+exports.updateMyPurchaseProgress = async (req, res) => {
+    const userId = req.user?.id;
+    const { purchaseId } = req.params;
+    const progressStep = Number(req.body?.progress_step);
+
+    if (!userId) {
+        return res.status(401).json({ message: 'Chưa xác thực danh tính' });
+    }
+
+    if (!Number.isInteger(progressStep) || progressStep < 0) {
+        return res.status(400).json({ message: 'progress_step phải là số nguyên >= 0' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const purchaseResult = await client.query(
+            `SELECT id, tour_id, user_id, progress_step, status
+             FROM tour_purchases
+             WHERE id = $1::UUID
+             FOR UPDATE`,
+            [purchaseId]
+        );
+
+        if (purchaseResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Không tìm thấy bản ghi tour đã mua' });
+        }
+
+        const purchase = purchaseResult.rows[0];
+        if (purchase.user_id !== userId) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ message: 'Bạn không có quyền cập nhật tiến độ tour này' });
+        }
+
+        const stepsResult = await client.query(
+            'SELECT COUNT(*)::INT AS total_steps FROM tour_items WHERE tour_id = $1::UUID',
+            [purchase.tour_id]
+        );
+        const totalSteps = Number(stepsResult.rows[0]?.total_steps || 0);
+
+        if (totalSteps <= 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Tour chưa có lộ trình để cập nhật tiến độ' });
+        }
+
+        const normalizedProgress = Math.min(progressStep, totalSteps);
+        const nextStatus = normalizedProgress >= totalSteps ? 'completed' : 'paid';
+
+        const updateResult = await client.query(
+            `UPDATE tour_purchases
+             SET progress_step = $1::INT,
+                 status = $2,
+                 completed_at = CASE WHEN $2 = 'completed' THEN NOW() ELSE completed_at END,
+                 updated_at = NOW()
+             WHERE id = $3::UUID
+             RETURNING id, tour_id, progress_step, status, completed_at, updated_at`,
+            [normalizedProgress, nextStatus, purchaseId]
+        );
+
+        await client.query('COMMIT');
+
+        res.json({
+            message: 'Cập nhật tiến độ tour thành công',
+            purchase: updateResult.rows[0],
+            total_steps: totalSteps,
+        });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: 'Lỗi cập nhật tiến độ tour: ' + err.message });
+    } finally {
+        client.release();
+    }
+};

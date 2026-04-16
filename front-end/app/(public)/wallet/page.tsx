@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { authApi } from "@/lib/api";
+import { authApi, paymentApi } from "@/lib/api";
 import { User } from "@/types/auth";
 
 type WalletTransaction = {
@@ -31,6 +31,7 @@ export default function WalletPage() {
   const [amount, setAmount] = useState<string>("100000");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPayingOnline, setIsPayingOnline] = useState(false);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
 
   const loadData = useCallback(async () => {
@@ -56,6 +57,32 @@ export default function WalletPage() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    const runCheckPaymentStatus = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const appTransId = params.get("zp_app_trans_id");
+      if (!appTransId) return;
+
+      try {
+        const res = await paymentApi.queryZaloPayStatus(appTransId);
+        if (res.data?.local_status === "paid") {
+          toast.success("Thanh toan ZaloPay thanh cong, vi da duoc cong tien.");
+        } else {
+          toast("Don hang chua thanh toan. Ban co the thu lai sau.");
+        }
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || "Khong the kiem tra trang thai don ZaloPay");
+      } finally {
+        await loadData();
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.delete("zp_app_trans_id");
+        window.history.replaceState({}, "", nextUrl.toString());
+      }
+    };
+
+    runCheckPaymentStatus();
+  }, [loadData]);
+
   const parsedAmount = useMemo(() => Number(amount || 0), [amount]);
 
   const handleTopUp = async () => {
@@ -73,6 +100,28 @@ export default function WalletPage() {
       toast.error(error?.response?.data?.message || error?.response?.data?.error || "Nap tien that bai");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleTopUpWithZaloPay = async () => {
+    if (!Number.isFinite(parsedAmount) || parsedAmount < 1000) {
+      toast.error("So tien nap toi thieu la 1,000d");
+      return;
+    }
+
+    setIsPayingOnline(true);
+    try {
+      const res = await paymentApi.createZaloPayTopupOrder(parsedAmount);
+      const orderUrl = res.data?.order_url;
+      if (!orderUrl) {
+        toast.error("Khong nhan duoc link thanh toan tu ZaloPay");
+        return;
+      }
+      window.location.href = orderUrl;
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || error?.response?.data?.error || "Tao don ZaloPay that bai");
+    } finally {
+      setIsPayingOnline(false);
     }
   };
 
@@ -131,16 +180,26 @@ export default function WalletPage() {
               />
             </div>
 
-            <button
-              onClick={handleTopUp}
-              disabled={isSubmitting}
-              className="w-full py-3 rounded-xl bg-black text-white font-bold disabled:opacity-60"
-            >
-              {isSubmitting ? "Dang xu ly..." : "Nap tien ngay"}
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={handleTopUpWithZaloPay}
+                disabled={isPayingOnline}
+                className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-60"
+              >
+                {isPayingOnline ? "Dang tao don ZaloPay..." : "Thanh toan bang ZaloPay"}
+              </button>
+
+              <button
+                onClick={handleTopUp}
+                disabled={isSubmitting}
+                className="w-full py-3 rounded-xl bg-black text-white font-bold disabled:opacity-60"
+              >
+                {isSubmitting ? "Dang xu ly..." : "Nap tien noi bo (test)"}
+              </button>
+            </div>
 
             <p className="text-xs text-muted-foreground">
-              Luu y: Day la luong nap tien noi bo de test, chua tich hop cong thanh toan online.
+              Ban co the nap nhanh bang ZaloPay hoac dung luong noi bo de test.
             </p>
           </div>
 

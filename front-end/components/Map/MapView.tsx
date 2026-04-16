@@ -10,7 +10,7 @@ import toast from "react-hot-toast";
 // API & Types
 import { poiApi, getFileUrl, tourApi } from "@/lib/api";
 import { POIWithTranslation } from "@/types/pois";
-import { Tour } from "@/types/tour";
+import { Tour, TourPurchase } from "@/types/tour";
 
 // Hooks & Utils
 import { useGeolocation } from "@/hooks/useGeolocation";
@@ -33,6 +33,41 @@ function ChangeView({ center }: { center: [number, number] }) {
   return null;
 }
 
+const toRadians = (value: number) => (value * Math.PI) / 180;
+
+const calculateDistanceMeters = (from: [number, number], to: [number, number]) => {
+  const earthRadius = 6371000;
+  const dLat = toRadians(to[0] - from[0]);
+  const dLon = toRadians(to[1] - from[1]);
+  const lat1 = toRadians(from[0]);
+  const lat2 = toRadians(to[0]);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return earthRadius * c;
+};
+
+const getRelativeDirection = (from: [number, number], to: [number, number]) => {
+  const dLat = to[0] - from[0];
+  const dLon = to[1] - from[1];
+
+  // Chia 8 hướng tương đối theo trục bản đồ (Bắc ở phía trên).
+  const angle = (Math.atan2(dLon, dLat) * 180) / Math.PI;
+  const normalized = (angle + 360) % 360;
+
+  if (normalized >= 337.5 || normalized < 22.5) return { arrow: "↑", label: "Phia truoc" };
+  if (normalized < 67.5) return { arrow: "↗", label: "Chech phai phia truoc" };
+  if (normalized < 112.5) return { arrow: "→", label: "Ben phai" };
+  if (normalized < 157.5) return { arrow: "↘", label: "Chech phai phia sau" };
+  if (normalized < 202.5) return { arrow: "↓", label: "Phia sau" };
+  if (normalized < 247.5) return { arrow: "↙", label: "Chech trai phia sau" };
+  if (normalized < 292.5) return { arrow: "←", label: "Ben trai" };
+  return { arrow: "↖", label: "Chech trai phia truoc" };
+};
+
 export default function MapView() {
   const router = useRouter();
 
@@ -48,15 +83,22 @@ export default function MapView() {
   const [recentPois, setRecentPois] = useState<POIWithTranslation[]>([]);
   const [tours, setTours] = useState<Tour[]>([]);
   const [purchasedTourIds, setPurchasedTourIds] = useState<string[]>([]);
+  const [purchaseMapByTourId, setPurchaseMapByTourId] = useState<Record<string, TourPurchase>>({});
   const [buyingTourId, setBuyingTourId] = useState<string | null>(null);
   const [insufficientFundsInfo, setInsufficientFundsInfo] = useState<{
     message: string;
     required?: number;
     currentBalance?: number;
   } | null>(null);
+  const [activeTourId, setActiveTourId] = useState<string | null>(null);
+  const [activeTourStops, setActiveTourStops] = useState<Array<any>>([]);
+  const [activeTourStepIndex, setActiveTourStepIndex] = useState(0);
+  const [startingTourId, setStartingTourId] = useState<string | null>(null);
+  const [activePurchaseId, setActivePurchaseId] = useState<string | null>(null);
 
   // 3. Ref để quản lý Marker (Dùng để mở Popup từ Nearby Panel)
   const markerRefs = useRef<{ [key: string]: any }>({});
+  const mapRef = useRef<L.Map | null>(null);
 
   // 4. Custom Hook xử lý Logic Giả lập (AWSD + Auto-Audio)
   const sim = useMapSimulation(pois, activeAudioKey, toggleAudio, stopAudio);
@@ -106,11 +148,19 @@ export default function MapView() {
 
       try {
         const myPurchaseRes = await tourApi.getMyPurchases(lang);
-        const ids = (myPurchaseRes.data || []).map((p) => p.tour_id);
+        const purchases = myPurchaseRes.data || [];
+        const ids = purchases.map((p) => p.tour_id);
+        const mapByTour: Record<string, TourPurchase> = {};
+        purchases.forEach((p) => {
+          mapByTour[p.tour_id] = p;
+        });
+
         setPurchasedTourIds(ids);
+        setPurchaseMapByTourId(mapByTour);
       } catch (err) {
         // Token có thể hết hạn; không chặn map load.
         setPurchasedTourIds([]);
+        setPurchaseMapByTourId({});
       }
     } catch (err) {
       console.error("Lỗi tải danh sách tour:", err);
@@ -170,6 +220,58 @@ export default function MapView() {
     router.push(`/map/${poiId}`);
   };
 
+  const focusPoiOnMap = useCallback((poiId: string) => {
+    const marker = markerRefs.current[poiId];
+    if (marker) {
+      marker.openPopup();
+      const { lat, lng } = marker.getLatLng();
+      if (mapRef.current) {
+        mapRef.current.setView([lat, lng], 18, { animate: true });
+      }
+    }
+  }, []);
+
+  const handleStartTour = async (tourId: string) => {
+    const purchase = purchaseMapByTourId[tourId];
+    if (!purchase) {
+      toast.error("Bạn cần mua tour trước khi bắt đầu");
+      return;
+    }
+
+    setStartingTourId(tourId);
+    try {
+      const lang = localStorage.getItem("preferred_lang") || "vi-VN";
+      const res = await tourApi.getDetails(tourId, lang);
+      const stops = (res.data?.stops || []).slice().sort((a: any, b: any) => a.step_order - b.step_order);
+
+      if (!stops.length) {
+        toast.error("Tour này chưa có lộ trình điểm dừng");
+        return;
+      }
+
+      setActiveTourId(tourId);
+      setActiveTourStops(stops);
+      setActivePurchaseId(purchase.purchase_id);
+
+      const savedProgress = Number(purchase.progress_step || 0);
+      const startIndex = Math.max(0, Math.min(stops.length - 1, savedProgress > 0 ? savedProgress - 1 : 0));
+      setActiveTourStepIndex(startIndex);
+      toast.success("Đã bắt đầu tour");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || "Không thể bắt đầu tour");
+    } finally {
+      setStartingTourId(null);
+    }
+  };
+
+  const handleEndTourGuide = () => {
+    setActiveTourId(null);
+    setActivePurchaseId(null);
+    setActiveTourStops([]);
+    setActiveTourStepIndex(0);
+    toast.success("Đã kết thúc chế độ dẫn tour");
+  };
+
   const handleBuyTour = async (tourId: string) => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -181,8 +283,24 @@ export default function MapView() {
     setInsufficientFundsInfo(null);
     setBuyingTourId(tourId);
     try {
-      await tourApi.purchase(tourId);
+      const purchaseRes = await tourApi.purchase(tourId);
       setPurchasedTourIds((prev) => (prev.includes(tourId) ? prev : [...prev, tourId]));
+      setPurchaseMapByTourId((prev) => ({
+        ...prev,
+        [tourId]: {
+          purchase_id: purchaseRes.data.purchase.id,
+          tour_id: tourId,
+          purchase_price: tours.find((t) => t.id === tourId)?.price || 0,
+          status: "paid",
+          progress_step: 0,
+          total_steps: 0,
+          purchased_at: purchaseRes.data.purchase.purchased_at,
+          title: tours.find((t) => t.id === tourId)?.title,
+          summary: tours.find((t) => t.id === tourId)?.summary,
+          thumbnail_url: tours.find((t) => t.id === tourId)?.thumbnail_url,
+          is_active: true,
+        },
+      }));
       toast.success("Mua tour thành công");
     } catch (error: any) {
       const responseData = error?.response?.data || {};
@@ -211,6 +329,47 @@ export default function MapView() {
 
   const isMobileViewport = isMounted && typeof window !== "undefined" && window.innerWidth < 768;
   const popupOffset: [number, number] = isMobileViewport ? [0, -220] : [0, -170];
+  const activeTour = tours.find((t) => t.id === activeTourId) || null;
+  const activeStep = activeTourStops[activeTourStepIndex] || null;
+  const canGoPrevStep = activeTourStepIndex > 0;
+  const canGoNextStep = activeTourStepIndex < activeTourStops.length - 1;
+
+  const goToStep = async (nextIndex: number) => {
+    const stop = activeTourStops[nextIndex];
+    if (!stop) return;
+
+    if (activePurchaseId) {
+      try {
+        await tourApi.updateMyPurchaseProgress(activePurchaseId, nextIndex + 1);
+        if (activeTourId) {
+          setPurchaseMapByTourId((prev) => {
+            const existing = prev[activeTourId];
+            if (!existing) return prev;
+            return {
+              ...prev,
+              [activeTourId]: {
+                ...existing,
+                progress_step: nextIndex + 1,
+                status: nextIndex + 1 >= activeTourStops.length ? "completed" : existing.status,
+              },
+            };
+          });
+        }
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || "Không lưu được tiến độ tour");
+      }
+    }
+
+    setActiveTourStepIndex(nextIndex);
+  };
+
+  const activeStepDistanceMeters = activeStep
+    ? calculateDistanceMeters(currentPos, [activeStep.latitude, activeStep.longitude])
+    : null;
+
+  const activeStepDirection = activeStep
+    ? getRelativeDirection(currentPos, [activeStep.latitude, activeStep.longitude])
+    : null;
 
   // --- GIAO DIỆN LOADING ---
   if (!isMounted || loading) return (
@@ -226,7 +385,7 @@ return (
     <div className="h-[100dvh] w-full relative bg-slate-100 overflow-hidden font-sans flex flex-col md:block">
       
       {/* 1. MOBILE HEADER (Chỉ hiện trên điện thoại) */}
-      <div className="md:hidden bg-white/90 backdrop-blur-md px-4 py-3 z-[1001] border-b flex justify-between items-center shadow-sm">
+      <div className="md:hidden bg-white/90 backdrop-blur-md px-4 py-3 z-[901] border-b flex justify-between items-center shadow-sm">
         <div>
           <h1 className="text-lg font-bold text-blue-600 leading-none">Voyager</h1>
           <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Smart Tour Guide</p>
@@ -242,7 +401,7 @@ return (
       </div>
 
       {/* 2. SIMULATOR PANEL (Desktop: Góc phải | Mobile: Thu gọn lên trên) */}
-      <div className="absolute top-20 right-4 z-[1000] md:top-4 md:right-4 pointer-events-auto">
+      <div className="absolute top-20 right-4 z-[908] md:top-4 md:right-4 pointer-events-auto">
         <div className={`${!sim.useManual && 'opacity-50 md:opacity-100'} transition-opacity`}>
           <SimulatorPanel 
             useManual={sim.useManual} 
@@ -256,7 +415,7 @@ return (
       </div>
 
       {/* TOUR BUY PANEL */}
-      <div className="fixed top-[76px] left-4 right-4 md:left-auto md:right-4 md:top-[145px] md:w-[360px] z-[1002] pointer-events-auto">
+      <div className="fixed top-[250px] left-4 right-4 md:left-auto md:right-4 md:top-[300px] md:w-[360px] z-[903] pointer-events-auto">
         <div className="rounded-3xl bg-white/95 backdrop-blur-xl border border-white/70 shadow-2xl overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 bg-gradient-to-r from-emerald-50 to-blue-50">
             <p className="text-[11px] font-black tracking-widest uppercase text-slate-500">Tour Store</p>
@@ -280,7 +439,7 @@ return (
             </div>
           )}
 
-          <div className="max-h-[34vh] md:max-h-[42vh] overflow-y-auto p-3 space-y-2 scrollbar-hide">
+          <div className="max-h-[26vh] md:max-h-[34vh] overflow-y-auto p-3 space-y-2 scrollbar-hide">
             {tours.length === 0 && (
               <p className="text-sm text-slate-500 px-2 py-3">Chua co tour dang mo ban.</p>
             )}
@@ -288,6 +447,8 @@ return (
             {tours.map((tour) => {
               const isPurchased = purchasedTourIds.includes(tour.id);
               const isBuying = buyingTourId === tour.id;
+              const purchase = purchaseMapByTourId[tour.id];
+              const hasProgress = Number(purchase?.progress_step || 0) > 0;
 
               return (
                 <div key={tour.id} className="rounded-2xl border border-slate-100 bg-white p-3 flex items-start gap-3">
@@ -306,15 +467,29 @@ return (
                       </span>
 
                       <button
-                        onClick={() => handleBuyTour(tour.id)}
-                        disabled={isPurchased || isBuying}
+                        onClick={() => {
+                          if (isPurchased) {
+                            handleStartTour(tour.id);
+                            return;
+                          }
+                          handleBuyTour(tour.id);
+                        }}
+                        disabled={isBuying || startingTourId === tour.id}
                         className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-all ${
                           isPurchased
-                            ? "bg-emerald-100 text-emerald-700 cursor-not-allowed"
+                            ? activeTourId === tour.id
+                              ? "bg-emerald-600 text-white"
+                              : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
                             : "bg-blue-600 text-white hover:bg-blue-500"
-                        } ${isBuying ? "opacity-60 cursor-wait" : ""}`}
+                        } ${(isBuying || startingTourId === tour.id) ? "opacity-60 cursor-wait" : ""}`}
                       >
-                        {isPurchased ? "Da mua" : isBuying ? "Dang mua..." : "Mua tour"}
+                        {isPurchased
+                          ? activeTourId === tour.id
+                            ? "Dang dan tour"
+                            : (startingTourId === tour.id ? "Dang tai..." : hasProgress ? "Tiep tuc tour" : "Bat dau tour")
+                          : isBuying
+                            ? "Dang mua..."
+                            : "Mua tour"}
                       </button>
                     </div>
                   </div>
@@ -325,10 +500,82 @@ return (
         </div>
       </div>
 
+      {activeTour && activeStep && (
+        <div className="fixed left-4 right-4 bottom-[120px] md:left-auto md:right-4 md:w-[360px] md:bottom-4 z-[904] pointer-events-auto">
+          <div className="rounded-3xl border border-emerald-200 bg-white/95 backdrop-blur-xl shadow-2xl overflow-hidden">
+            <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-emerald-700">Che do dan tour</p>
+                <h4 className="text-sm font-black text-slate-800 truncate">{activeTour.title || "Tour"}</h4>
+              </div>
+              <button
+                onClick={handleEndTourGuide}
+                className="text-[11px] font-black px-2 py-1 rounded-lg bg-white border border-emerald-200 text-emerald-700"
+              >
+                Ket thuc
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <div className="rounded-xl border border-slate-200 p-3 bg-slate-50">
+                <p className="text-[10px] uppercase font-black tracking-wider text-slate-500">
+                  Buoc {activeTourStepIndex + 1}/{activeTourStops.length}
+                </p>
+                <p className="text-[10px] uppercase font-black tracking-wider text-slate-500 mt-2">Diem ke tiep</p>
+                <p className="text-sm font-black text-slate-800 mt-1">{activeStep.name || "Diem dung"}</p>
+                <p className="text-xs text-slate-500 mt-1">{activeStep.category || "food"}</p>
+
+                <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+                  <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                    <p className="text-[9px] uppercase font-black text-slate-400">Khoang cach con lai</p>
+                    <p className="font-black text-slate-800">
+                      {typeof activeStepDistanceMeters === "number"
+                        ? `${Math.round(activeStepDistanceMeters)} m`
+                        : "---"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                    <p className="text-[9px] uppercase font-black text-slate-400">Huong tuong doi</p>
+                    <p className="font-black text-slate-800 flex items-center gap-1">
+                      <span className="text-base leading-none">{activeStepDirection?.arrow || "•"}</span>
+                      <span>{activeStepDirection?.label || "---"}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => goToStep(activeTourStepIndex - 1)}
+                  disabled={!canGoPrevStep}
+                  className="py-2 rounded-xl border text-xs font-black disabled:opacity-40"
+                >
+                  Buoc truoc
+                </button>
+                <button
+                  onClick={() => focusPoiOnMap(activeStep.poi_id)}
+                  className="py-2 rounded-xl bg-slate-900 text-white text-xs font-black"
+                >
+                  Mo diem tren ban do
+                </button>
+                <button
+                  onClick={() => goToStep(activeTourStepIndex + 1)}
+                  disabled={!canGoNextStep}
+                  className="py-2 rounded-xl bg-emerald-600 text-white text-xs font-black disabled:opacity-40"
+                >
+                  Buoc tiep
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!isSidebarVisible && nowPlayingPoi && (
         <button
           onClick={() => setIsSidebarClosed(false)}
-          className="fixed z-[1006] left-4 top-20 px-3 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-xl"
+          className="fixed z-[906] left-4 top-20 px-3 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-xl"
         >
           Mo thong tin quán
         </button>
@@ -336,7 +583,7 @@ return (
 
       {/* SLIDEBAR ĐANG PHÁT: xuất hiện khi user đi vào trigger audio */}
       <aside
-        className={`fixed z-[1006] bg-white/95 backdrop-blur-xl border-r border-white/70 shadow-2xl transition-all duration-500 ease-out
+        className={`fixed z-[906] bg-white/95 backdrop-blur-xl border-r border-white/70 shadow-2xl transition-all duration-500 ease-out
           top-0 left-0 h-full w-[340px]
           ${isSidebarVisible ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none'}`}
       >
@@ -428,7 +675,7 @@ return (
       </aside>
 
       {/* 3. NEARBY PANEL (Mobile: Vuốt từ dưới lên | Desktop: Cố định bên trái) */}
-      <div className="fixed bottom-0 left-0 right-0 z-[1005] md:absolute md:top-4 md:left-4 md:bottom-auto md:right-auto md:w-[340px] pointer-events-none">
+      <div className="fixed bottom-0 left-0 right-0 z-[905] md:absolute md:top-4 md:left-4 md:bottom-auto md:right-auto md:w-[340px] pointer-events-none">
         <div className="pointer-events-auto bg-white md:bg-transparent rounded-t-3xl md:rounded-none shadow-[0_-10px_30px_rgba(0,0,0,0.1)] md:shadow-none">
           {/* Thanh nắm kéo giả cho Mobile */}
           <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto my-3 md:hidden"></div>
@@ -450,6 +697,9 @@ return (
           className="h-full w-full" 
           zoomControl={false}
           attributionControl={false} // Tắt để đỡ rối trên mobile
+          whenCreated={(map) => {
+            mapRef.current = map;
+          }}
         >
           <ChangeView center={currentPos} />
           
@@ -483,6 +733,19 @@ return (
           {/* POI Markers */}
           {pois.map((poi) => (
             <div key={poi.id}>
+              {activeTourId && activeStep?.poi_id === poi.id && (
+                <Circle
+                  center={[poi.latitude, poi.longitude]}
+                  radius={42}
+                  pathOptions={{
+                    fillColor: "#10b981",
+                    fillOpacity: 0.18,
+                    color: "#059669",
+                    weight: 2,
+                  }}
+                />
+              )}
+
               {sim.useManual && (
                 <Circle
                   center={[poi.latitude, poi.longitude]}
@@ -504,7 +767,7 @@ return (
                   className: "poi-marker",
                   html: `
                     <div class="group relative flex items-center justify-center">
-                      <div class="w-10 h-10 bg-orange-500 rounded-2xl flex items-center justify-center text-white border-2 border-white shadow-xl active:scale-95 transition-transform">
+                      <div class="w-10 h-10 ${activeStep?.poi_id === poi.id ? "bg-emerald-600" : "bg-orange-500"} rounded-2xl flex items-center justify-center text-white border-2 border-white shadow-xl active:scale-95 transition-transform">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
                       </div>
                     </div>`,

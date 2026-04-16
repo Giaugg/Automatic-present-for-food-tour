@@ -111,6 +111,24 @@ export const authApi = {
     }>>('/auth/wallet-transactions', { params: { limit } }),
 };
 
+export const paymentApi = {
+  createZaloPayTopupOrder: (amount: number) =>
+    api.post<{
+      message: string;
+      app_trans_id: string;
+      order_url?: string;
+      zp_trans_token?: string;
+      qr_code?: string;
+    }>('/payments/zalopay/topup-order', { amount }),
+  queryZaloPayStatus: (appTransId: string) =>
+    api.get<{
+      message: string;
+      app_trans_id: string;
+      local_status: string;
+      provider_response?: any;
+    }>(`/payments/zalopay/status/${encodeURIComponent(appTransId)}`),
+};
+
 export const languageApi = {
   getActive: () => api.get<{ success: boolean; data: Language[] }>('/languages/active'),
   getAdminAll: () => api.get<{ success: boolean; data: Language[] }>('/languages/admin/all'),
@@ -153,6 +171,19 @@ export const tourApi = {
     wallet: { previous_balance: number; current_balance: number };
     reward_points: number;
   }>(`/tours/${id}/purchase`),
+  updateMyPurchaseProgress: (purchaseId: string, progressStep: number) =>
+    api.patch<{
+      message: string;
+      purchase: {
+        id: string;
+        tour_id: string;
+        progress_step: number;
+        status: string;
+        completed_at?: string | null;
+        updated_at: string;
+      };
+      total_steps: number;
+    }>(`/tours/my/purchases/${purchaseId}/progress`, { progress_step: progressStep }),
   create: (data: CreateTourDTO) => api.post<{ id: string; message: string }>('/tours', data),
   update: (id: string, data: Partial<CreateTourDTO>) => api.put<{ message: string }>(`/tours/${id}`, data),
   updateSchedule: (tourId: string, data: UpdateTourScheduleDTO) => api.put<{ message: string }>(`/tours/${tourId}/schedule`, data),
