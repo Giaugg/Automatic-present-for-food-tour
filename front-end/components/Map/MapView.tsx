@@ -356,7 +356,7 @@ export default function MapView() {
           });
         }
       } catch (error: any) {
-        toast.error(error?.response?.data?.message || "Không lưu được tiến độ tour");
+        toast.error(error?.response?.data?.message || error?.response?.data?.error || "Không lưu được tiến độ tour");
       }
     }
 

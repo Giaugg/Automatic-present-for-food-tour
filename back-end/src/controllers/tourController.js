@@ -484,16 +484,20 @@ exports.updateMyPurchaseProgress = async (req, res) => {
 
         const normalizedProgress = Math.min(progressStep, totalSteps);
         const nextStatus = normalizedProgress >= totalSteps ? 'completed' : 'paid';
+        const isCompleted = nextStatus === 'completed';
 
         const updateResult = await client.query(
             `UPDATE tour_purchases
              SET progress_step = $1::INT,
-                 status = $2,
-                 completed_at = CASE WHEN $2 = 'completed' THEN NOW() ELSE completed_at END,
-                 updated_at = NOW()
+                 status = $2::VARCHAR(20),
+                 completed_at = CASE
+                    WHEN $4::BOOLEAN THEN NOW()
+                    WHEN NOT $4::BOOLEAN THEN NULL
+                    ELSE completed_at
+                 END
              WHERE id = $3::UUID
-             RETURNING id, tour_id, progress_step, status, completed_at, updated_at`,
-            [normalizedProgress, nextStatus, purchaseId]
+             RETURNING id, tour_id, progress_step, status, completed_at`,
+            [normalizedProgress, nextStatus, purchaseId, isCompleted]
         );
 
         await client.query('COMMIT');

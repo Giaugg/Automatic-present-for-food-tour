@@ -180,7 +180,7 @@ export const tourApi = {
         progress_step: number;
         status: string;
         completed_at?: string | null;
-        updated_at: string;
+        updated_at?: string;
       };
       total_steps: number;
     }>(`/tours/my/purchases/${purchaseId}/progress`, { progress_step: progressStep }),
