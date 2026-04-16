@@ -33,6 +33,14 @@ function ChangeView({ center }: { center: [number, number] }) {
   return null;
 }
 
+function BindMapRef({ onMapReady }: { onMapReady: (map: L.Map) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    onMapReady(map);
+  }, [map, onMapReady]);
+  return null;
+}
+
 const toRadians = (value: number) => (value * Math.PI) / 180;
 
 const calculateDistanceMeters = (from: [number, number], to: [number, number]) => {
@@ -697,10 +705,11 @@ return (
           className="h-full w-full" 
           zoomControl={false}
           attributionControl={false} // Tắt để đỡ rối trên mobile
-          whenCreated={(map) => {
-            mapRef.current = map;
-          }}
         >
+          <BindMapRef onMapReady={(map) => {
+            mapRef.current = map;
+          }} />
+
           <ChangeView center={currentPos} />
           
           <TileLayer 

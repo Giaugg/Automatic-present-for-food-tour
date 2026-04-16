@@ -23,14 +23,14 @@ export function useMapSimulation(
     let closestPoi: POIWithTranslation | null = null;
     let closestDist = Infinity;
 
-    pois.forEach(poi => {
+    for (const poi of pois) {
       const dist = getDistance(currentLat, currentLng, poi.latitude, poi.longitude);
       const triggerRadiusMeters = (poi as any).trigger_radius_meters || 30;
       if (dist < triggerRadiusMeters / 1000 && dist < closestDist) {
         closestDist = dist;
         closestPoi = poi;
       }
-    });
+    }
 
     if (closestPoi) {
       const selectedPoi = closestPoi;

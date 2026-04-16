@@ -26,6 +26,8 @@ type POI = {
   type: string;
 };
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
 export default function FoodMap() {
   const [userPosition, setUserPosition] = useState<LatLngExpression | null>(null);
   const [accuracy, setAccuracy] = useState<number | null>(null);
@@ -94,7 +96,7 @@ export default function FoodMap() {
       const radius = 1000;
 
       const res = await fetch(
-        `http://localhost:5000/api/food-street?lat=${centerLat}&lon=${centerLon}&radius=${radius}`
+        `${API_URL}/api/food-street?lat=${centerLat}&lon=${centerLon}&radius=${radius}`
       );
 
       const data = await res.json();

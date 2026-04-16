@@ -14,6 +14,5 @@ export const getDistance = (lat1: number, lon1: number, lat2: number, lon2: numb
 export const getFullAudioUrl = (url: string | null) => {
   if (!url || url === "null") return null;
   const path = url.startsWith('/uploads') ? url : `/uploads${url.startsWith('/') ? url : `/${url}`}`;
-  console.log("🔗 Full audio URL:", `${API_URL}${path}`);
   return `${API_URL}${path}`;
 };

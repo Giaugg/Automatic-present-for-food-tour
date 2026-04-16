@@ -4,8 +4,6 @@ import { AuthResponse, LoginCredentials, RegisterCredentials } from '../types/au
 import { User, UpdateProfileDTO } from '../types/user';
 import { POIWithTranslation } from '../types/pois';
 import { Tour, CreateTourDTO, UpdateTourScheduleDTO, TourPurchase } from '../types/tour';
-import { clear } from 'console';
-import { clearPreviewData } from 'next/dist/server/api-utils';
 
 export type DeviceIdentifyPayload = {
   timezone: string | null;
@@ -31,8 +29,6 @@ const getBaseUrl = async () => {
     return dynamicApiUrl;
   }
 
-  return DEFAULT_LOCAL_API_URL;
-
   // Sử dụng link RAW và thêm timestamp để tránh cache
   const GITHUB_RAW_URL = `https://raw.githubusercontent.com/Giaugg/Automatic-present-for-food-tour/main/urls.json?t=${new Date().getTime()}`;
   
@@ -49,6 +45,7 @@ const getBaseUrl = async () => {
     throw new Error("Invalid JSON structure");
   } catch (error) {
     console.error("❌ Failed to fetch URL from GitHub:", error);
+    dynamicApiUrl = DEFAULT_LOCAL_API_URL;
     return DEFAULT_LOCAL_API_URL;
   }
 };
@@ -223,9 +220,11 @@ export const getFileUrl = (path: string | null) => {
   if (!path) return "/placeholder.png";
   if (path.startsWith('http')) return path;
 
-  // Lấy URL đã cache. Nếu chưa có, dùng biến môi trường hoặc mặc định
-  // Không dùng await ở đây vì hàm này thường dùng trực tiếp trong component (render)
-  const baseUrl = localStorage.getItem('apiBaseUrl') || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  // Tránh truy cập localStorage trong SSR.
+  const baseUrl =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('apiBaseUrl') || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+      : process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
   
   // Chuẩn hóa đường dẫn: đảm bảo không bị double slash //
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
