@@ -1,5 +1,5 @@
 export type UserRole = "admin" | "owner" | "visitor";
-export type OwnerPlan = "free" | "premium";
+export type OwnerPlan = string;
 
 export interface User {
   id: string;

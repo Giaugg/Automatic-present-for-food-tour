@@ -14,6 +14,18 @@ export type DeviceIdentifyPayload = {
   touchPoints: number;
 };
 
+export type OwnerPlanCatalogItem = {
+  key: string;
+  title: string;
+  shortDescription: string;
+  priceVnd: number;
+  durationDays: number | null;
+  maxThumbnailUploads: number;
+  maxAudioRadiusMeters: number;
+  features: string[];
+  isActive?: boolean;
+};
+
 
 let dynamicApiUrl: string | null = null;
 const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '');
@@ -134,16 +146,7 @@ export const paymentApi = {
   getOwnerPlans: () =>
     api.get<{
       message: string;
-      data: Array<{
-        key: string;
-        title: string;
-        shortDescription: string;
-        priceVnd: number;
-        durationDays: number | null;
-        maxThumbnailUploads: number;
-        maxAudioRadiusMeters: number;
-        features: string[];
-      }>;
+      data: OwnerPlanCatalogItem[];
     }>('/payments/owner-plans'),
   getMyOwnerPlan: () =>
     api.get<{
@@ -182,6 +185,23 @@ export const paymentApi = {
         };
       };
     }>('/payments/owner-plans/subscribe', { planKey }),
+  getAdminOwnerPlans: () =>
+    api.get<{
+      message: string;
+      data: OwnerPlanCatalogItem[];
+    }>('/payments/admin/owner-plans'),
+  createAdminOwnerPlan: (data: OwnerPlanCatalogItem) =>
+    api.post<{
+      message: string;
+      data: OwnerPlanCatalogItem;
+    }>('/payments/admin/owner-plans', data),
+  updateAdminOwnerPlan: (key: string, data: Partial<OwnerPlanCatalogItem>) =>
+    api.put<{
+      message: string;
+      data: OwnerPlanCatalogItem;
+    }>(`/payments/admin/owner-plans/${encodeURIComponent(key)}`, data),
+  deleteAdminOwnerPlan: (key: string) =>
+    api.delete<{ message: string }>(`/payments/admin/owner-plans/${encodeURIComponent(key)}`),
 };
 
 export const languageApi = {

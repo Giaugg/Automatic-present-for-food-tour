@@ -209,7 +209,7 @@ const poiController = {
                     [finalOwnerId]
                 );
                 const ownerPlan = ownerPlanRes.rows[0]?.owner_plan || 'free';
-                const planConfig = getOwnerPlanConfig(ownerPlan);
+                const planConfig = await getOwnerPlanConfig(ownerPlan, client, { includeInactive: true });
 
                 if (finalRadius > planConfig.maxAudioRadiusMeters) {
                     throw createPlanLimitError(`Gói ${planConfig.title} chỉ cho phép bán kính audio tối đa ${planConfig.maxAudioRadiusMeters}m.`);
@@ -312,7 +312,7 @@ const poiController = {
                     [req.user.id]
                 );
                 const ownerPlan = ownerPlanRes.rows[0]?.owner_plan || 'free';
-                const planConfig = getOwnerPlanConfig(ownerPlan);
+                const planConfig = await getOwnerPlanConfig(ownerPlan, client, { includeInactive: true });
 
                 if (finalRadius > planConfig.maxAudioRadiusMeters) {
                     throw createPlanLimitError(`Gói ${planConfig.title} chỉ cho phép bán kính audio tối đa ${planConfig.maxAudioRadiusMeters}m.`);

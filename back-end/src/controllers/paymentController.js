@@ -1,7 +1,16 @@
 const crypto = require('crypto');
 const axios = require('axios');
 const pool = require('../config/db');
-const { OWNER_PLAN, OWNER_PLAN_CONFIG, getOwnerPlanConfig } = require('../services/ownerPlanService');
+const {
+  OWNER_PLAN,
+  normalizePlanKey,
+  listOwnerPlans,
+  getOwnerPlanConfig,
+  createOwnerPlan,
+  updateOwnerPlan,
+  deleteOwnerPlan,
+  planExists
+} = require('../services/ownerPlanService');
 
 const ZALOPAY_CREATE_ENDPOINT = process.env.ZALOPAY_CREATE_ENDPOINT || 'https://sb-openapi.zalopay.vn/v2/create';
 const ZALOPAY_QUERY_ENDPOINT = process.env.ZALOPAY_QUERY_ENDPOINT || 'https://sb-openapi.zalopay.vn/v2/query';
@@ -100,10 +109,93 @@ const toPlanResponse = (plan) => ({
   durationDays: plan.durationDays,
   maxThumbnailUploads: plan.maxThumbnailUploads,
   maxAudioRadiusMeters: plan.maxAudioRadiusMeters,
-  features: plan.features || []
+  features: plan.features || [],
+  isActive: Boolean(plan.isActive)
 });
 
-const normalizePlanKey = (value) => String(value || '').toLowerCase();
+const validatePlanPayload = (rawBody, { isUpdate = false } = {}) => {
+  const body = rawBody || {};
+  const payload = {};
+
+  if (!isUpdate) {
+    const key = normalizePlanKey(body.key);
+    if (!key) {
+      return { error: 'Vui lòng nhập key cho gói' };
+    }
+    if (!/^[a-z0-9][a-z0-9_-]{1,19}$/.test(key)) {
+      return { error: 'Key chỉ chứa chữ thường, số, dấu gạch ngang và có độ dài 2-20 ký tự' };
+    }
+    payload.key = key;
+  }
+
+  if (body.title !== undefined || !isUpdate) {
+    const title = String(body.title || '').trim();
+    if (!title) return { error: 'Tiêu đề gói không được để trống' };
+    payload.title = title;
+  }
+
+  if (body.shortDescription !== undefined || !isUpdate) {
+    payload.shortDescription = String(body.shortDescription || '').trim();
+  }
+
+  if (body.priceVnd !== undefined || !isUpdate) {
+    const price = Number(body.priceVnd);
+    if (!Number.isFinite(price) || price < 0) {
+      return { error: 'Giá gói phải là số không âm' };
+    }
+    payload.priceVnd = Math.round(price);
+  }
+
+  if (body.durationDays !== undefined || !isUpdate) {
+    if (body.durationDays === null || body.durationDays === '') {
+      payload.durationDays = null;
+    } else {
+      const days = Number(body.durationDays);
+      if (!Number.isInteger(days) || days <= 0) {
+        return { error: 'durationDays phải là số nguyên dương hoặc null' };
+      }
+      payload.durationDays = days;
+    }
+  }
+
+  if (body.maxThumbnailUploads !== undefined || !isUpdate) {
+    const maxThumb = Number(body.maxThumbnailUploads);
+    if (!Number.isInteger(maxThumb) || maxThumb < 0) {
+      return { error: 'maxThumbnailUploads phải là số nguyên không âm' };
+    }
+    payload.maxThumbnailUploads = maxThumb;
+  }
+
+  if (body.maxAudioRadiusMeters !== undefined || !isUpdate) {
+    const maxRadius = Number(body.maxAudioRadiusMeters);
+    if (!Number.isInteger(maxRadius) || maxRadius <= 0) {
+      return { error: 'maxAudioRadiusMeters phải là số nguyên dương' };
+    }
+    payload.maxAudioRadiusMeters = maxRadius;
+  }
+
+  if (body.features !== undefined || !isUpdate) {
+    if (!Array.isArray(body.features)) {
+      return { error: 'features phải là mảng chuỗi' };
+    }
+
+    payload.features = body.features
+      .map((item) => String(item || '').trim())
+      .filter((item) => item.length > 0);
+  }
+
+  if (body.isActive !== undefined) {
+    payload.isActive = Boolean(body.isActive);
+  } else if (!isUpdate) {
+    payload.isActive = true;
+  }
+
+  if (isUpdate && Object.keys(payload).length === 0) {
+    return { error: 'Không có trường nào để cập nhật' };
+  }
+
+  return { payload };
+};
 
 const expireOwnerPlanIfNeeded = async (client, userId) => {
   const activeRes = await client.query(
@@ -118,7 +210,7 @@ const expireOwnerPlanIfNeeded = async (client, userId) => {
   const active = activeRes.rows[0];
   if (!active) return null;
 
-  if (active.plan_key === OWNER_PLAN.PREMIUM && active.ends_at && new Date(active.ends_at) < new Date()) {
+  if (active.ends_at && new Date(active.ends_at) < new Date()) {
     await client.query(
       `UPDATE owner_plan_subscriptions
        SET status = 'expired', updated_at = NOW()
@@ -392,11 +484,139 @@ exports.zaloPayCallback = async (req, res) => {
 };
 
 exports.getOwnerPlans = async (req, res) => {
-  const plans = Object.values(OWNER_PLAN_CONFIG).map(toPlanResponse);
-  return res.json({
-    message: 'Lấy danh sách gói thành công',
-    data: plans
-  });
+  try {
+    const plans = await listOwnerPlans({ includeInactive: false });
+    return res.json({
+      message: 'Lấy danh sách gói thành công',
+      data: plans.map(toPlanResponse)
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Không thể lấy danh sách gói' });
+  }
+};
+
+exports.getAdminOwnerPlans = async (req, res) => {
+  try {
+    const plans = await listOwnerPlans({ includeInactive: true });
+    return res.json({
+      message: 'Lấy danh sách gói cho admin thành công',
+      data: plans.map(toPlanResponse)
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Không thể lấy danh sách gói cho admin' });
+  }
+};
+
+exports.createAdminOwnerPlan = async (req, res) => {
+  const { payload, error } = validatePlanPayload(req.body, { isUpdate: false });
+  if (error) {
+    return res.status(400).json({ message: error });
+  }
+
+  try {
+    const exists = await planExists(payload.key, { activeOnly: false });
+    if (exists) {
+      return res.status(409).json({ message: 'Key gói đã tồn tại' });
+    }
+
+    const created = await createOwnerPlan(payload);
+    return res.status(201).json({
+      message: 'Tạo gói thành công',
+      data: toPlanResponse(created)
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Không thể tạo gói' });
+  }
+};
+
+exports.updateAdminOwnerPlan = async (req, res) => {
+  const planKey = normalizePlanKey(req.params?.key);
+  if (!planKey) {
+    return res.status(400).json({ message: 'Thiếu key gói' });
+  }
+
+  const { payload, error } = validatePlanPayload(req.body, { isUpdate: true });
+  if (error) {
+    return res.status(400).json({ message: error });
+  }
+
+  if (planKey === OWNER_PLAN.FREE && payload.isActive === false) {
+    return res.status(400).json({ message: 'Không thể tắt gói free mặc định' });
+  }
+
+  try {
+    const updated = await updateOwnerPlan(planKey, payload);
+    if (!updated) {
+      return res.status(404).json({ message: 'Không tìm thấy gói để cập nhật' });
+    }
+
+    return res.json({
+      message: 'Cập nhật gói thành công',
+      data: toPlanResponse(updated)
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Không thể cập nhật gói' });
+  }
+};
+
+exports.deleteAdminOwnerPlan = async (req, res) => {
+  const planKey = normalizePlanKey(req.params?.key);
+  if (!planKey) {
+    return res.status(400).json({ message: 'Thiếu key gói' });
+  }
+
+  if (planKey === OWNER_PLAN.FREE) {
+    return res.status(400).json({ message: 'Không thể xóa gói free mặc định' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const activeUserCountRes = await client.query(
+      `SELECT COUNT(*)
+       FROM users
+       WHERE owner_plan = $1`,
+      [planKey]
+    );
+
+    if (Number(activeUserCountRes.rows[0].count || 0) > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        message: 'Không thể xóa vì vẫn còn chủ quán đang dùng gói này'
+      });
+    }
+
+    const activeSubscriptionCountRes = await client.query(
+      `SELECT COUNT(*)
+       FROM owner_plan_subscriptions
+       WHERE plan_key = $1
+         AND status = 'active'
+         AND (ends_at IS NULL OR ends_at > NOW())`,
+      [planKey]
+    );
+
+    if (Number(activeSubscriptionCountRes.rows[0].count || 0) > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        message: 'Không thể xóa vì vẫn còn subscription đang active'
+      });
+    }
+
+    const deleted = await deleteOwnerPlan(planKey, client);
+    if (!deleted) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Không tìm thấy gói để xóa' });
+    }
+
+    await client.query('COMMIT');
+    return res.json({ message: 'Xóa gói thành công' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    return res.status(500).json({ error: err.message || 'Không thể xóa gói' });
+  } finally {
+    client.release();
+  }
 };
 
 exports.getMyOwnerPlan = async (req, res) => {
@@ -467,15 +687,22 @@ exports.subscribeOwnerPlan = async (req, res) => {
     return res.status(403).json({ message: 'Chỉ owner hoặc admin mới đăng ký gói' });
   }
 
-  if (!Object.values(OWNER_PLAN).includes(planKey)) {
+  if (!planKey) {
     return res.status(400).json({ message: 'Gói không hợp lệ' });
   }
 
-  const planConfig = getOwnerPlanConfig(planKey);
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
+
+    const activePlanExists = await planExists(planKey, { activeOnly: true }, client);
+    if (!activePlanExists) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ message: 'Gói không tồn tại hoặc đã bị tắt' });
+    }
+
+    const planConfig = await getOwnerPlanConfig(planKey, client, { includeInactive: true });
 
     const userRes = await client.query(
       `SELECT id, owner_plan, balance FROM users WHERE id = $1::UUID FOR UPDATE`,
@@ -506,9 +733,13 @@ exports.subscribeOwnerPlan = async (req, res) => {
     );
     const currentActive = activeRes.rows[0] || null;
 
-    if (planKey === OWNER_PLAN.PREMIUM && currentPlan === OWNER_PLAN.PREMIUM && currentActive && currentActive.plan_key === OWNER_PLAN.PREMIUM) {
+    if (
+      currentActive &&
+      currentActive.plan_key === planKey &&
+      (!currentActive.ends_at || new Date(currentActive.ends_at) > new Date())
+    ) {
       await client.query('ROLLBACK');
-      return res.status(409).json({ message: 'Bạn đang sử dụng gói premium' });
+      return res.status(409).json({ message: 'Bạn đang sử dụng gói này' });
     }
 
     let amount = Number(planConfig.priceVnd || 0);

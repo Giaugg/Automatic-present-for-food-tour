@@ -145,6 +145,21 @@ const migration = {
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS owner_plans (
+          key VARCHAR(20) PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          short_description TEXT,
+          price_vnd DECIMAL(15, 2) NOT NULL DEFAULT 0,
+          duration_days INT,
+          max_thumbnail_uploads INT NOT NULL DEFAULT 3,
+          max_audio_radius_meters INT NOT NULL DEFAULT 30,
+          features JSONB NOT NULL DEFAULT '[]'::jsonb,
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          deleted_at TIMESTAMP WITH TIME ZONE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE TABLE IF NOT EXISTS device_access_logs (
           id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
           ip_address VARCHAR(100),
@@ -171,9 +186,6 @@ const migration = {
 
         ALTER TABLE users
           DROP CONSTRAINT IF EXISTS users_owner_plan_check;
-
-        ALTER TABLE users
-          ADD CONSTRAINT users_owner_plan_check CHECK (owner_plan IN ('free', 'premium'));
 
         ALTER TABLE pois
           ADD COLUMN IF NOT EXISTS trigger_radius_meters INT DEFAULT 30;
@@ -213,6 +225,9 @@ const migration = {
 
         CREATE INDEX IF NOT EXISTS idx_owner_plan_subscriptions_user_active
           ON owner_plan_subscriptions (user_id, status, ends_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_owner_plans_active
+          ON owner_plans (is_active, deleted_at);
 
         CREATE INDEX IF NOT EXISTS idx_device_access_logs_created_at
           ON device_access_logs (created_at DESC);
@@ -298,6 +313,58 @@ const migration = {
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
            ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, owner_plan = EXCLUDED.owner_plan`,
           u
+        );
+      }
+
+      const ownerPlans = [
+        {
+          key: 'free',
+          title: 'Goi mien phi',
+          shortDescription: 'Goi co ban danh cho chu quan moi bat dau',
+          priceVnd: 0,
+          durationDays: null,
+          maxThumbnailUploads: 3,
+          maxAudioRadiusMeters: 30,
+          features: ['Toi da 3 anh thumbnail', 'Ban kinh audio toi da 30m', 'Ho tro tao QR co ban'],
+          isActive: true
+        },
+        {
+          key: 'premium',
+          title: 'Goi tra phi',
+          shortDescription: 'Mo rong han muc va uu tien hien thi tren ban do',
+          priceVnd: 199000,
+          durationDays: 30,
+          maxThumbnailUploads: 30,
+          maxAudioRadiusMeters: 120,
+          features: [
+            'Toi da 30 anh thumbnail',
+            'Ban kinh audio toi da 120m',
+            'Uu tien hien thi trong danh sach gan day',
+            'Quan ly QR nang cao'
+          ],
+          isActive: true
+        }
+      ];
+
+      for (const plan of ownerPlans) {
+        await client.query(
+          `INSERT INTO owner_plans (
+             key, title, short_description, price_vnd, duration_days,
+             max_thumbnail_uploads, max_audio_radius_meters, features, is_active
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
+           ON CONFLICT (key) DO NOTHING`,
+          [
+            plan.key,
+            plan.title,
+            plan.shortDescription,
+            plan.priceVnd,
+            plan.durationDays,
+            plan.maxThumbnailUploads,
+            plan.maxAudioRadiusMeters,
+            JSON.stringify(plan.features),
+            plan.isActive
+          ]
         );
       }
 
@@ -415,6 +482,7 @@ const migration = {
         DROP TABLE IF EXISTS tour_items CASCADE;
         DROP TABLE IF EXISTS tour_translations CASCADE;
         DROP TABLE IF EXISTS tours CASCADE;
+        DROP TABLE IF EXISTS owner_plans CASCADE;
         DROP TABLE IF EXISTS poi_translations CASCADE;
         DROP TABLE IF EXISTS pois CASCADE;
         DROP TABLE IF EXISTS languages CASCADE;

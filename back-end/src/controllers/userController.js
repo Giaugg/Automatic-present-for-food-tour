@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { normalizePlanKey, planExists } = require('../services/ownerPlanService');
 
 const userController = {
     // 1. Lấy danh sách tất cả người dùng (Có lọc & tìm kiếm)
@@ -51,8 +52,13 @@ const userController = {
         const { id } = req.params;
         const { full_name, role, owner_plan, points, balance } = req.body;
         try {
-            if (owner_plan && !['free', 'premium'].includes(owner_plan)) {
-                return res.status(400).json({ message: "owner_plan không hợp lệ. Chỉ chấp nhận free hoặc premium" });
+            let validatedOwnerPlan = owner_plan;
+            if (owner_plan !== undefined && owner_plan !== null && owner_plan !== '') {
+                validatedOwnerPlan = normalizePlanKey(owner_plan);
+                const exists = await planExists(validatedOwnerPlan, { activeOnly: true });
+                if (!exists) {
+                    return res.status(400).json({ message: "owner_plan không hợp lệ hoặc đã bị tắt" });
+                }
             }
 
             const result = await pool.query(
@@ -63,7 +69,7 @@ const userController = {
                      points = COALESCE($4, points), 
                      balance = COALESCE($5, balance)
                  WHERE id = $6 RETURNING id, full_name, role, owner_plan, points, balance`,
-                [full_name, role, owner_plan, points, balance, id]
+                [full_name, role, validatedOwnerPlan, points, balance, id]
             );
 
             if (result.rows.length === 0) {

@@ -80,6 +80,9 @@ export default function OwnerPage() {
 
   if (loading) return <div className="p-8 animate-pulse text-gray-500">Đang tính toán dữ liệu...</div>;
 
+  const currentPlanMeta = planCatalog.find((plan) => plan.key === planState?.currentPlan) || null;
+  const currentPlanLabel = currentPlanMeta?.title || String(planState?.currentPlan || "free").toUpperCase();
+
   return (
     <main className="p-8 space-y-8 bg-gray-50/50 min-h-screen">
       <div className="flex justify-between items-end">
@@ -146,7 +149,7 @@ export default function OwnerPage() {
             <p className="text-sm text-gray-500 font-medium">Gói tài khoản hiện tại</p>
             <h3 className="text-xl font-bold uppercase flex items-center gap-2">
               <Crown className="w-5 h-5 text-amber-500" />
-              {planState?.currentPlan === "premium" ? "Gói trả phí" : "Gói miễn phí"}
+              {currentPlanLabel}
             </h3>
           </div>
           <div className="text-sm text-gray-600">

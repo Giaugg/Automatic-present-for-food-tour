@@ -75,7 +75,7 @@ const dashboardController = {
       ]);
 
       const ownerPlan = ownerRes.rows[0]?.owner_plan || 'free';
-      const planConfig = getOwnerPlanConfig(ownerPlan);
+      const planConfig = await getOwnerPlanConfig(ownerPlan, client, { includeInactive: true });
       const usedThumbnailUploads = parseInt(thumbnailUsageRes.rows[0].count, 10);
 
       res.json({
