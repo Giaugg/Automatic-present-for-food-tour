@@ -190,7 +190,15 @@ export const languageApi = {
 
 export const poiApi = {
   getAll: (lang: string = 'vi-VN') => api.get<POIWithTranslation[]>(`/pois`, { params: { lang } }),
-  getMyPOIs: () => api.get<POIWithTranslation[]>('/pois/my-pois'),
+  getMyPOIs: () =>
+    api.get<
+      | {
+          success: boolean;
+          count: number;
+          data: POIWithTranslation[];
+        }
+      | POIWithTranslation[]
+    >('/pois/my-pois'),
   getById: (id: string, lang: string) => api.get<POIWithTranslation>(`/pois/${id}`, { params: { lang } }),
   getDetails: (id: string) => api.get<{ success: boolean; data: { translations: any[] } }>(`/pois/${id}/details`),
   create: (formData: FormData) =>

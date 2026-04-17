@@ -339,7 +339,7 @@ export default function MapView() {
   };
 
   const isMobileViewport = isMounted && typeof window !== "undefined" && window.innerWidth < 768;
-  const popupWidth = isMobileViewport ? 300 : 380;
+  const popupWidth = isMobileViewport ? 253 : 374;
   const popupOffset: [number, number] = isMobileViewport ? [0, -210] : [0, -180];
   const activeTour = tours.find((t) => t.id === activeTourId) || null;
   const isTourGuideMode = !!activeTourId;
@@ -833,6 +833,8 @@ return (
         
         .custom-popup .leaflet-popup-content-wrapper { 
           padding: 0; 
+          width: 374px !important;
+          max-width: calc(100vw - 28px);
           border-radius: 1.5rem; 
           overflow: hidden; 
           box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
@@ -842,7 +844,6 @@ return (
         .custom-popup .leaflet-popup-content {
           margin: 0;
           width: 100% !important;
-          min-width: 0;
         }
         .custom-popup .leaflet-popup-tip-container { display: none; }
         .custom-popup .leaflet-popup-close-button { top: 8px; right: 8px; color: #334155; }
@@ -851,8 +852,12 @@ return (
         @media (max-width: 768px) {
           .leaflet-marker-icon { cursor: pointer; }
           .custom-popup { margin-bottom: 210px; }
-          .custom-popup .leaflet-popup-content-wrapper { border-radius: 1.25rem; }
-          .custom-popup .leaflet-popup-content { width: 100% !important; min-width: 0; }
+          .custom-popup .leaflet-popup-content-wrapper {
+            width: min(92vw, 253px) !important;
+            max-width: min(92vw, 253px);
+            border-radius: 1.25rem;
+          }
+          .custom-popup .leaflet-popup-content { width: 100% !important; }
         }
 
         .scrollbar-hide::-webkit-scrollbar { display: none; }

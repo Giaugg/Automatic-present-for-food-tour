@@ -43,9 +43,11 @@ export default function AdminPOIManagement() {
   const fetchPOIs = useCallback(async () => {
     try {
       const res = await poiApi.getMyPOIs();
+      const poiList = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+
       // Load thêm chi tiết để lấy all_translations cho từng dòng
       const fullData = await Promise.all(
-        res.data.map(async (p: POIWithTranslation) => {
+        poiList.map(async (p: POIWithTranslation) => {
           const details = await poiApi.getDetails(p.id);
           // Lưu ý: data.data.translations tùy thuộc vào cấu trúc trả về của API bạn
           return { ...p, all_translations: details.data.data?.translations || [] };

@@ -12,6 +12,8 @@ export default function AdminToursPage() {
   const [tours, setTours] = useState<Tour[]>([]);
   const [pois, setPois] = useState<POIWithTranslation[]>([]);
   const [selectedTourId, setSelectedTourId] = useState<string | null>(null);
+  const [isCreatingTour, setIsCreatingTour] = useState(false);
+  const [draftSourceTourId, setDraftSourceTourId] = useState<string | null>(null);
   const [hasInitializedSelection, setHasInitializedSelection] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -82,6 +84,11 @@ export default function AdminToursPage() {
   }, [selectedTourId, loadTourDetails]);
 
   const resetFormForNewTour = () => {
+    if (selectedTourId && !isCreatingTour) {
+      setDraftSourceTourId(selectedTourId);
+    }
+
+    setIsCreatingTour(true);
     setSelectedTourId(null);
     setHasInitializedSelection(true);
     setPrice(0);
@@ -91,6 +98,32 @@ export default function AdminToursPage() {
     setSummary("");
     setScheduleStops([]);
     toast.success('Đã chuyển sang chế độ tạo tour mới');
+  };
+
+  const handleCancelCreateTour = () => {
+    const fallbackTourId =
+      draftSourceTourId && tours.some((t: Tour) => t.id === draftSourceTourId)
+        ? draftSourceTourId
+        : (tours[0]?.id || null);
+
+    setIsCreatingTour(false);
+    setDraftSourceTourId(null);
+    setHasInitializedSelection(true);
+
+    if (fallbackTourId) {
+      setSelectedTourId(fallbackTourId);
+      toast.success("Đã hủy tạo tour mới");
+      return;
+    }
+
+    setSelectedTourId(null);
+    setPrice(0);
+    setThumbnailUrl("");
+    setIsActive(true);
+    setTitle("");
+    setSummary("");
+    setScheduleStops([]);
+    toast.success("Đã hủy tạo tour mới");
   };
 
   const handleUploadThumbnail = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -142,6 +175,8 @@ export default function AdminToursPage() {
       } else {
         const res = await tourApi.create(payload);
         activeTourId = res.data.id;
+        setIsCreatingTour(false);
+        setDraftSourceTourId(null);
         setSelectedTourId(activeTourId);
         toast.success("Đã tạo tour mới");
       }
@@ -280,6 +315,8 @@ export default function AdminToursPage() {
               <button
                 key={tour.id}
                 onClick={() => {
+                  setIsCreatingTour(false);
+                  setDraftSourceTourId(null);
                   setSelectedTourId(tour.id);
                   setHasInitializedSelection(true);
                 }}
@@ -370,6 +407,16 @@ export default function AdminToursPage() {
               <Save size={16} />
               {saving ? "Đang lưu..." : selectedTourId ? "Cập nhật tour" : "Tạo tour"}
             </button>
+
+            {isCreatingTour && (
+              <button
+                onClick={handleCancelCreateTour}
+                disabled={saving}
+                className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-semibold disabled:opacity-60"
+              >
+                Hủy tạo mới
+              </button>
+            )}
 
             {selectedTour && (
               <button
