@@ -6,6 +6,7 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
 import L, { LatLngExpression } from "leaflet";
 import toast from "react-hot-toast";
+import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 
 // Fix icon lỗi trong Next
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -26,7 +27,7 @@ type POI = {
   type: string;
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API_URL = getApiBaseUrl();
 
 export default function FoodMap() {
   const [userPosition, setUserPosition] = useState<LatLngExpression | null>(null);

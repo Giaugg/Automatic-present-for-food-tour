@@ -4,6 +4,7 @@ import { AuthResponse, LoginCredentials, RegisterCredentials } from '../types/au
 import { User, UpdateProfileDTO } from '../types/user';
 import { POIWithTranslation } from '../types/pois';
 import { Tour, CreateTourDTO, UpdateTourScheduleDTO, TourPurchase } from '../types/tour';
+import { getApiBaseUrl } from './apiBaseUrl';
 
 export type DeviceIdentifyPayload = {
   timezone: string | null;
@@ -15,44 +16,50 @@ export type DeviceIdentifyPayload = {
 
 
 let dynamicApiUrl: string | null = null;
-const DEFAULT_LOCAL_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '');
+const DEFAULT_DISCOVERY_URL = 'https://raw.githubusercontent.com/Giaugg/Automatic-present-for-food-tour/main/urls.json';
 
 const getApiSourceMode = () => {
-  return (process.env.NEXT_PUBLIC_API_SOURCE || 'local').toLowerCase();
+  return (process.env.NEXT_PUBLIC_API_SOURCE || 'auto').toLowerCase();
 };
 
 const getBaseUrl = async () => {
   if (dynamicApiUrl) return dynamicApiUrl;
 
-  if (getApiSourceMode() === 'local') {
-    dynamicApiUrl = DEFAULT_LOCAL_API_URL;
+  const sourceMode = getApiSourceMode();
+
+  if (sourceMode === 'local') {
+    dynamicApiUrl = 'http://localhost:5000';
     return dynamicApiUrl;
   }
 
-  // Sử dụng link RAW và thêm timestamp để tránh cache
-  const GITHUB_RAW_URL = `https://raw.githubusercontent.com/Giaugg/Automatic-present-for-food-tour/main/urls.json?t=${new Date().getTime()}`;
-  
-  try {
-    // Sử dụng axios để lấy file JSON
-    const response = await axios.get(GITHUB_RAW_URL);
-    
-    // Kiểm tra cấu trúc dữ liệu trả về
-    if (response.data && response.data.apiUrl) {
-      dynamicApiUrl = response.data.apiUrl;
-      console.log("✅ API URL updated from GitHub:", dynamicApiUrl);
+  if (sourceMode === 'remote') {
+    const discoveryUrl = process.env.NEXT_PUBLIC_API_DISCOVERY_URL || DEFAULT_DISCOVERY_URL;
+    const requestUrl = `${discoveryUrl}${discoveryUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
+
+    try {
+      const response = await axios.get(requestUrl);
+      if (response.data && typeof response.data.apiUrl === 'string' && response.data.apiUrl.trim()) {
+        dynamicApiUrl = normalizeBaseUrl(response.data.apiUrl.trim());
+        console.log('✅ API URL updated from discovery endpoint:', dynamicApiUrl);
+        return dynamicApiUrl;
+      }
+      throw new Error('Invalid JSON structure');
+    } catch (error) {
+      console.error('❌ Failed to fetch URL from discovery endpoint:', error);
+      dynamicApiUrl = getApiBaseUrl();
       return dynamicApiUrl;
     }
-    throw new Error("Invalid JSON structure");
-  } catch (error) {
-    console.error("❌ Failed to fetch URL from GitHub:", error);
-    dynamicApiUrl = DEFAULT_LOCAL_API_URL;
-    return DEFAULT_LOCAL_API_URL;
   }
+
+  // auto/env mode: ưu tiên NEXT_PUBLIC_API_URL, sau đó fallback hợp lý theo môi trường runtime.
+  dynamicApiUrl = getApiBaseUrl();
+  return dynamicApiUrl;
 };
 
 const api: AxiosInstance = axios.create({
   // Giá trị mặc định cho lần khởi tạo đầu tiên, sau đó interceptor sẽ set lại chính xác.
-  baseURL: `${DEFAULT_LOCAL_API_URL}/api`,
+  baseURL: `${getApiBaseUrl()}/api`,
   headers: {
     'Content-Type': 'application/json',
     'ngrok-skip-browser-warning': 'true',
@@ -280,16 +287,11 @@ export const getFileUrl = (path: string | null) => {
   if (!path) return "/placeholder.png";
   if (path.startsWith('http')) return path;
 
-  // Tránh truy cập localStorage trong SSR.
-  const baseUrl =
-    typeof window !== 'undefined'
-      ? localStorage.getItem('apiBaseUrl') || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
-      : process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const persistedApiBase = typeof window !== 'undefined' ? localStorage.getItem('apiBaseUrl') : null;
+  const baseUrl = persistedApiBase || dynamicApiUrl || getApiBaseUrl();
   
   // Chuẩn hóa đường dẫn: đảm bảo không bị double slash //
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
-
-  console.log(baseUrl,cleanPath);
   
   return `${baseUrl}${cleanPath}`;
 };
@@ -313,7 +315,7 @@ export const getFullAudioUrl = (url: string | null | undefined) => {
 
   // 3. Thêm tham số chống cache (v=timestamp) 
   // Rất quan trọng khi bạn dùng tính năng Rebuild Audio ở trang Admin
-  const baseUrl = dynamicApiUrl || DEFAULT_LOCAL_API_URL;
+  const baseUrl = dynamicApiUrl || getApiBaseUrl();
   return `${baseUrl}${path}?v=${Date.now()}`;
 };
 

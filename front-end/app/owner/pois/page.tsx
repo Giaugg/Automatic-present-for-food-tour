@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { poiApi, languageApi } from "@/lib/api";
+import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { toast } from "react-hot-toast";
 import CreatePoiModal from "@/components/poi/CreatePoiModal";
 import EditPoiModal from "@/components/poi/EditPoiModal";
@@ -20,7 +21,7 @@ import {
 } from "lucide-react";
 import { POIWithTranslation } from "@/types/pois";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_URL = getApiBaseUrl();
 
 export default function AdminPOIManagement() {
   // --- States ---
