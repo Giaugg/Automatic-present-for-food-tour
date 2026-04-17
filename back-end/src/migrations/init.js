@@ -130,6 +130,38 @@ const migration = {
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS owner_plan_subscriptions (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+          plan_key VARCHAR(20) NOT NULL,
+          amount DECIMAL(15, 2) NOT NULL DEFAULT 0,
+          status VARCHAR(20) NOT NULL DEFAULT 'active',
+          payment_method VARCHAR(30) NOT NULL DEFAULT 'wallet',
+          starts_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          ends_at TIMESTAMP WITH TIME ZONE,
+          metadata JSONB,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS device_access_logs (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          ip_address VARCHAR(100),
+          user_agent TEXT,
+          device_type VARCHAR(20),
+          browser VARCHAR(50),
+          operating_system VARCHAR(50),
+          accept_language VARCHAR(120),
+          platform_hint VARCHAR(80),
+          timezone VARCHAR(80),
+          language VARCHAR(20),
+          platform VARCHAR(80),
+          screen_resolution VARCHAR(40),
+          touch_points INT,
+          user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
       `);
 
       // 2.1. Đồng bộ schema cho database cũ đã tạo trước đó
@@ -175,6 +207,15 @@ const migration = {
 
         CREATE INDEX IF NOT EXISTS idx_payment_orders_status
           ON payment_orders (status);
+
+        CREATE INDEX IF NOT EXISTS idx_owner_plan_subscriptions_user_created
+          ON owner_plan_subscriptions (user_id, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_owner_plan_subscriptions_user_active
+          ON owner_plan_subscriptions (user_id, status, ends_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_device_access_logs_created_at
+          ON device_access_logs (created_at DESC);
       `);
 
       // 3. Chèn dữ liệu mẫu (Seeding)

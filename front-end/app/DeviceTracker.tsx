@@ -3,8 +3,9 @@
 import { useEffect } from "react";
 import { deviceApi, DeviceIdentifyPayload } from "../lib/api";
 
-// Chỉ gửi tracking 1 lần mỗi session trình duyệt để tránh gọi lặp.
-const SESSION_KEY = "device_tracked_once";
+// Giới hạn gửi tracking 1 lần trong 30 phút để vừa có log kiểm tra vừa tránh spam.
+const LAST_TRACKED_AT_KEY = "device_tracked_last_at";
+const TRACK_INTERVAL_MS = 30 * 60 * 1000;
 
 const DeviceTracker = () => {
   useEffect(() => {
@@ -12,7 +13,10 @@ const DeviceTracker = () => {
       return;
     }
 
-    if (window.sessionStorage.getItem(SESSION_KEY) === "1") {
+    const lastTrackedAt = Number(window.localStorage.getItem(LAST_TRACKED_AT_KEY) || 0);
+    const now = Date.now();
+
+    if (lastTrackedAt > 0 && now - lastTrackedAt < TRACK_INTERVAL_MS) {
       return;
     }
 
@@ -28,10 +32,11 @@ const DeviceTracker = () => {
     deviceApi
       .identify(payload)
       .then(() => {
-        window.sessionStorage.setItem(SESSION_KEY, "1");
+        window.localStorage.setItem(LAST_TRACKED_AT_KEY, String(now));
       })
-      .catch(() => {
-        // Bỏ qua lỗi tracking để không ảnh hưởng trải nghiệm người dùng
+      .catch((err) => {
+        // Ghi warning để tiện kiểm tra lỗi tracking nhưng không làm hỏng trải nghiệm.
+        console.warn("[DeviceTracker] identify failed:", err?.response?.data || err?.message || err);
       });
   }, []);
 

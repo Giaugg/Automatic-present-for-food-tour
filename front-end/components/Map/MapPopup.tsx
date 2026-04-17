@@ -22,10 +22,10 @@ export default function MapPopup({ poi, activeAudioKey, toggleAudio }: MapPopupP
   };
 
   return (
-    <div className="flex flex-col bg-white overflow-hidden rounded-[1.25rem] w-full max-w-[320px] shadow-2xl border border-slate-100">
+    <div className="flex flex-col bg-white overflow-hidden rounded-[1.25rem] w-[340px] max-w-[92vw] md:w-[380px] shadow-2xl border border-slate-100">
       
       {/* --- PHẦN HÌNH ẢNH (HEADER) --- */}
-      <div className="relative h-36 md:h-40 overflow-hidden bg-slate-200">
+      <div className="relative h-40 md:h-44 overflow-hidden bg-slate-200">
         <img
           // Ưu tiên ảnh từ server, fallback về placeholder local nếu null/lỗi
           src={getFileUrl(poi.thumbnail_url)} 
@@ -51,12 +51,12 @@ export default function MapPopup({ poi, activeAudioKey, toggleAudio }: MapPopupP
 
       {/* --- PHẦN NỘI DUNG (BODY) --- */}
       <div className="p-4 bg-white relative">
-        <h3 className="text-lg font-black text-slate-900 uppercase mb-2 leading-tight tracking-tighter">
+        <h3 className="text-xl font-black text-slate-900 uppercase mb-2 leading-tight tracking-tighter">
           {poi.name}
         </h3>
         
         {/* Description Box */}
-        <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 mb-4 max-h-24 overflow-y-auto text-[12px] text-slate-600 leading-relaxed scrollbar-hide italic shadow-inner">
+        <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 mb-4 max-h-32 overflow-y-auto text-[13px] text-slate-600 leading-relaxed scrollbar-hide italic shadow-inner">
           {poi.description ? `"${poi.description}"` : "Chưa có thông tin mô tả chi tiết cho địa điểm này."}
         </div>
 

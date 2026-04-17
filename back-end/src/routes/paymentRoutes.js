@@ -12,4 +12,13 @@ router.get('/zalopay/status/:appTransId', authMiddleware, paymentController.quer
 // Callback từ ZaloPay (không cần auth user).
 router.post('/zalopay/callback', paymentController.zaloPayCallback);
 
+// Lấy danh sách gói owner.
+router.get('/owner-plans', authMiddleware, paymentController.getOwnerPlans);
+
+// Lấy thông tin gói owner hiện tại và lịch sử đăng ký.
+router.get('/owner-plans/me', authMiddleware, paymentController.getMyOwnerPlan);
+
+// Đăng ký gói owner (khấu trừ ví nếu có phí).
+router.post('/owner-plans/subscribe', authMiddleware, paymentController.subscribeOwnerPlan);
+
 module.exports = router;

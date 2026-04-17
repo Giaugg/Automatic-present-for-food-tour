@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const axios = require('axios');
 const pool = require('../config/db');
+const { OWNER_PLAN, OWNER_PLAN_CONFIG, getOwnerPlanConfig } = require('../services/ownerPlanService');
 
 const ZALOPAY_CREATE_ENDPOINT = process.env.ZALOPAY_CREATE_ENDPOINT || 'https://sb-openapi.zalopay.vn/v2/create';
 const ZALOPAY_QUERY_ENDPOINT = process.env.ZALOPAY_QUERY_ENDPOINT || 'https://sb-openapi.zalopay.vn/v2/query';
@@ -89,6 +90,51 @@ const settleOrderIfNeeded = async (client, order, queryPayload = null) => {
   );
 
   return { settled: true, newBalance: balanceAfter };
+};
+
+const toPlanResponse = (plan) => ({
+  key: plan.key,
+  title: plan.title,
+  shortDescription: plan.shortDescription,
+  priceVnd: Number(plan.priceVnd || 0),
+  durationDays: plan.durationDays,
+  maxThumbnailUploads: plan.maxThumbnailUploads,
+  maxAudioRadiusMeters: plan.maxAudioRadiusMeters,
+  features: plan.features || []
+});
+
+const normalizePlanKey = (value) => String(value || '').toLowerCase();
+
+const expireOwnerPlanIfNeeded = async (client, userId) => {
+  const activeRes = await client.query(
+    `SELECT id, plan_key, ends_at
+     FROM owner_plan_subscriptions
+     WHERE user_id = $1::UUID AND status = 'active'
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [userId]
+  );
+
+  const active = activeRes.rows[0];
+  if (!active) return null;
+
+  if (active.plan_key === OWNER_PLAN.PREMIUM && active.ends_at && new Date(active.ends_at) < new Date()) {
+    await client.query(
+      `UPDATE owner_plan_subscriptions
+       SET status = 'expired', updated_at = NOW()
+       WHERE id = $1::UUID`,
+      [active.id]
+    );
+
+    await client.query(
+      `UPDATE users SET owner_plan = $1 WHERE id = $2::UUID`,
+      [OWNER_PLAN.FREE, userId]
+    );
+
+    return null;
+  }
+
+  return active;
 };
 
 exports.createZaloPayTopupOrder = async (req, res) => {
@@ -342,5 +388,216 @@ exports.zaloPayCallback = async (req, res) => {
   } catch (err) {
     console.error('ZaloPay callback error:', err.message);
     return res.json({ return_code: 0, return_message: 'temporary error' });
+  }
+};
+
+exports.getOwnerPlans = async (req, res) => {
+  const plans = Object.values(OWNER_PLAN_CONFIG).map(toPlanResponse);
+  return res.json({
+    message: 'Lấy danh sách gói thành công',
+    data: plans
+  });
+};
+
+exports.getMyOwnerPlan = async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ message: 'Chưa xác thực danh tính' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const userRes = await client.query(
+      `SELECT id, owner_plan, balance FROM users WHERE id = $1::UUID FOR UPDATE`,
+      [userId]
+    );
+
+    if (userRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+
+    const active = await expireOwnerPlanIfNeeded(client, userId);
+
+    const latestUserRes = await client.query(
+      `SELECT owner_plan, balance FROM users WHERE id = $1::UUID`,
+      [userId]
+    );
+
+    const historyRes = await client.query(
+      `SELECT id, plan_key, amount, status, payment_method, starts_at, ends_at, created_at
+       FROM owner_plan_subscriptions
+       WHERE user_id = $1::UUID
+       ORDER BY created_at DESC
+       LIMIT 20`,
+      [userId]
+    );
+
+    await client.query('COMMIT');
+
+    return res.json({
+      message: 'Lấy thông tin gói thành công',
+      data: {
+        currentPlan: latestUserRes.rows[0].owner_plan || OWNER_PLAN.FREE,
+        balance: Number(latestUserRes.rows[0].balance || 0),
+        activeSubscription: active,
+        history: historyRes.rows
+      }
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    return res.status(500).json({ error: err.message || 'Không thể lấy thông tin gói' });
+  } finally {
+    client.release();
+  }
+};
+
+exports.subscribeOwnerPlan = async (req, res) => {
+  const userId = req.user?.id;
+  const role = req.user?.role;
+  const planKey = normalizePlanKey(req.body?.planKey);
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Chưa xác thực danh tính' });
+  }
+
+  if (!['owner', 'admin'].includes(role)) {
+    return res.status(403).json({ message: 'Chỉ owner hoặc admin mới đăng ký gói' });
+  }
+
+  if (!Object.values(OWNER_PLAN).includes(planKey)) {
+    return res.status(400).json({ message: 'Gói không hợp lệ' });
+  }
+
+  const planConfig = getOwnerPlanConfig(planKey);
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const userRes = await client.query(
+      `SELECT id, owner_plan, balance FROM users WHERE id = $1::UUID FOR UPDATE`,
+      [userId]
+    );
+
+    if (userRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+
+    await expireOwnerPlanIfNeeded(client, userId);
+
+    const latestUserRes = await client.query(
+      `SELECT owner_plan, balance FROM users WHERE id = $1::UUID`,
+      [userId]
+    );
+    const currentPlan = latestUserRes.rows[0].owner_plan || OWNER_PLAN.FREE;
+    const balanceBefore = Number(latestUserRes.rows[0].balance || 0);
+
+    const activeRes = await client.query(
+      `SELECT id, plan_key, status, ends_at
+       FROM owner_plan_subscriptions
+       WHERE user_id = $1::UUID AND status = 'active'
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [userId]
+    );
+    const currentActive = activeRes.rows[0] || null;
+
+    if (planKey === OWNER_PLAN.PREMIUM && currentPlan === OWNER_PLAN.PREMIUM && currentActive && currentActive.plan_key === OWNER_PLAN.PREMIUM) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ message: 'Bạn đang sử dụng gói premium' });
+    }
+
+    let amount = Number(planConfig.priceVnd || 0);
+    let paymentMethod = 'wallet';
+    let balanceAfter = balanceBefore;
+
+    if (amount > 0) {
+      if (balanceBefore < amount) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          message: 'Số dư không đủ để đăng ký gói',
+          required: amount,
+          current_balance: balanceBefore
+        });
+      }
+
+      balanceAfter = balanceBefore - amount;
+      await client.query(
+        `UPDATE users SET balance = $1::DECIMAL, owner_plan = $2 WHERE id = $3::UUID`,
+        [balanceAfter, planKey, userId]
+      );
+
+      await client.query(
+        `INSERT INTO wallet_transactions
+          (user_id, txn_type, amount, balance_before, balance_after, ref_type, note)
+         VALUES
+          ($1::UUID, 'owner_plan_subscription', $2::DECIMAL, $3::DECIMAL, $4::DECIMAL, 'owner_plan', $5)`,
+        [
+          userId,
+          amount,
+          balanceBefore,
+          balanceAfter,
+          `Dang ky gói ${planConfig.title}`
+        ]
+      );
+    } else {
+      paymentMethod = 'free';
+      await client.query(
+        `UPDATE users SET owner_plan = $1 WHERE id = $2::UUID`,
+        [planKey, userId]
+      );
+    }
+
+    if (currentActive) {
+      await client.query(
+        `UPDATE owner_plan_subscriptions
+         SET status = CASE WHEN status = 'active' THEN 'cancelled' ELSE status END,
+             ends_at = COALESCE(ends_at, NOW()),
+             updated_at = NOW()
+         WHERE id = $1::UUID`,
+        [currentActive.id]
+      );
+    }
+
+    const endsAt = planConfig.durationDays ? `NOW() + INTERVAL '${Number(planConfig.durationDays)} days'` : 'NULL';
+    const subscriptionRes = await client.query(
+      `INSERT INTO owner_plan_subscriptions
+        (user_id, plan_key, amount, status, payment_method, starts_at, ends_at, metadata)
+       VALUES
+        ($1::UUID, $2, $3::DECIMAL, 'active', $4, NOW(), ${endsAt}, $5::jsonb)
+       RETURNING id, plan_key, amount, status, payment_method, starts_at, ends_at, created_at`,
+      [
+        userId,
+        planKey,
+        amount,
+        paymentMethod,
+        JSON.stringify({ initiatedByRole: role })
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    return res.status(201).json({
+      message: 'Đăng ký gói thành công',
+      data: {
+        currentPlan: planKey,
+        subscription: subscriptionRes.rows[0],
+        wallet: {
+          previous_balance: balanceBefore,
+          current_balance: balanceAfter,
+          deducted: amount
+        },
+        plan: toPlanResponse(planConfig)
+      }
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    return res.status(500).json({ error: err.message || 'Không thể đăng ký gói' });
+  } finally {
+    client.release();
   }
 };

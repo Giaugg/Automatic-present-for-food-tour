@@ -103,6 +103,7 @@ export default function MapView() {
   const [activeTourStepIndex, setActiveTourStepIndex] = useState(0);
   const [startingTourId, setStartingTourId] = useState<string | null>(null);
   const [activePurchaseId, setActivePurchaseId] = useState<string | null>(null);
+  const [isTourStoreOpen, setIsTourStoreOpen] = useState(false);
 
   // 3. Ref để quản lý Marker (Dùng để mở Popup từ Nearby Panel)
   const markerRefs = useRef<{ [key: string]: any }>({});
@@ -336,7 +337,7 @@ export default function MapView() {
   };
 
   const isMobileViewport = isMounted && typeof window !== "undefined" && window.innerWidth < 768;
-  const popupOffset: [number, number] = isMobileViewport ? [0, -220] : [0, -170];
+  const popupOffset: [number, number] = isMobileViewport ? [0, -210] : [0, -180];
   const activeTour = tours.find((t) => t.id === activeTourId) || null;
   const activeStep = activeTourStops[activeTourStepIndex] || null;
   const canGoPrevStep = activeTourStepIndex > 0;
@@ -409,7 +410,7 @@ return (
       </div>
 
       {/* 2. SIMULATOR PANEL (Desktop: Góc phải | Mobile: Thu gọn lên trên) */}
-      <div className="absolute top-20 right-4 z-[908] md:top-4 md:right-4 pointer-events-auto">
+      <div className="hidden md:block absolute top-20 right-4 z-[908] md:top-4 md:right-4 pointer-events-auto">
         <div className={`${!sim.useManual && 'opacity-50 md:opacity-100'} transition-opacity`}>
           <SimulatorPanel 
             useManual={sim.useManual} 
@@ -422,8 +423,23 @@ return (
         </div>
       </div>
 
+      {isMobileViewport && (
+        <button
+          onClick={() => setIsTourStoreOpen((prev) => !prev)}
+          className="fixed right-4 bottom-[190px] z-[904] px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black shadow-xl"
+        >
+          {isTourStoreOpen ? "Ẩn Tour" : "Mở Tour"}
+        </button>
+      )}
+
       {/* TOUR BUY PANEL */}
-      <div className="fixed top-[250px] left-4 right-4 md:left-auto md:right-4 md:top-[300px] md:w-[360px] z-[903] pointer-events-auto">
+      <div
+        className={`fixed left-4 right-4 md:left-auto md:right-4 z-[903] pointer-events-auto transition-all duration-300 ${
+          isMobileViewport
+            ? `bottom-[230px] ${isTourStoreOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6 pointer-events-none'}`
+            : 'top-[300px] md:w-[360px] opacity-100 translate-y-0'
+        }`}
+      >
         <div className="rounded-3xl bg-white/95 backdrop-blur-xl border border-white/70 shadow-2xl overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 bg-gradient-to-r from-emerald-50 to-blue-50">
             <p className="text-[11px] font-black tracking-widest uppercase text-slate-500">Tour Store</p>
@@ -447,7 +463,7 @@ return (
             </div>
           )}
 
-          <div className="max-h-[26vh] md:max-h-[34vh] overflow-y-auto p-3 space-y-2 scrollbar-hide">
+          <div className="max-h-[34vh] md:max-h-[34vh] overflow-y-auto p-3 space-y-2 scrollbar-hide">
             {tours.length === 0 && (
               <p className="text-sm text-slate-500 px-2 py-3">Chua co tour dang mo ban.</p>
             )}
@@ -509,7 +525,7 @@ return (
       </div>
 
       {activeTour && activeStep && (
-        <div className="fixed left-4 right-4 bottom-[120px] md:left-auto md:right-4 md:w-[360px] md:bottom-4 z-[904] pointer-events-auto">
+        <div className="fixed left-4 right-4 bottom-[260px] md:left-auto md:right-4 md:w-[360px] md:bottom-4 z-[904] pointer-events-auto">
           <div className="rounded-3xl border border-emerald-200 bg-white/95 backdrop-blur-xl shadow-2xl overflow-hidden">
             <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between gap-2">
               <div>
@@ -583,7 +599,7 @@ return (
       {!isSidebarVisible && nowPlayingPoi && (
         <button
           onClick={() => setIsSidebarClosed(false)}
-          className="fixed z-[906] left-4 top-20 px-3 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-xl"
+          className="fixed z-[906] left-4 top-20 md:top-4 px-3 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-xl"
         >
           Mo thong tin quán
         </button>
@@ -683,7 +699,7 @@ return (
       </aside>
 
       {/* 3. NEARBY PANEL (Mobile: Vuốt từ dưới lên | Desktop: Cố định bên trái) */}
-      <div className="fixed bottom-0 left-0 right-0 z-[905] md:absolute md:top-4 md:left-4 md:bottom-auto md:right-auto md:w-[340px] pointer-events-none">
+      <div className="fixed bottom-0 left-0 right-0 z-[905] md:absolute md:top-4 md:left-4 md:bottom-auto md:right-auto md:w-[360px] pointer-events-none">
         <div className="pointer-events-auto bg-white md:bg-transparent rounded-t-3xl md:rounded-none shadow-[0_-10px_30px_rgba(0,0,0,0.1)] md:shadow-none">
           {/* Thanh nắm kéo giả cho Mobile */}
           <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto my-3 md:hidden"></div>
@@ -786,8 +802,8 @@ return (
               >
                 <Popup
                   className="custom-popup"
-                  minWidth={isMobileViewport ? 260 : 300}
-                  maxWidth={320}
+                  minWidth={isMobileViewport ? 300 : 360}
+                  maxWidth={420}
                   offset={popupOffset}
                   autoPanPaddingBottomRight={[24, 280]}
                   autoPanPaddingTopLeft={[24, 24]}
@@ -817,7 +833,11 @@ return (
           border: none;
         }
         
-        .custom-popup .leaflet-popup-content { margin: 0; width: 100% !important; }
+        .custom-popup .leaflet-popup-content {
+          margin: 0;
+          width: auto !important;
+          min-width: 300px;
+        }
         .custom-popup .leaflet-popup-tip-container { display: none; }
         .custom-popup .leaflet-popup-close-button { top: 8px; right: 8px; color: #334155; }
         
@@ -826,6 +846,7 @@ return (
           .leaflet-marker-icon { cursor: pointer; }
           .custom-popup { margin-bottom: 210px; }
           .custom-popup .leaflet-popup-content-wrapper { border-radius: 1.25rem; }
+          .custom-popup .leaflet-popup-content { min-width: 280px; }
         }
 
         .scrollbar-hide::-webkit-scrollbar { display: none; }

@@ -124,6 +124,57 @@ export const paymentApi = {
       local_status: string;
       provider_response?: any;
     }>(`/payments/zalopay/status/${encodeURIComponent(appTransId)}`),
+  getOwnerPlans: () =>
+    api.get<{
+      message: string;
+      data: Array<{
+        key: string;
+        title: string;
+        shortDescription: string;
+        priceVnd: number;
+        durationDays: number | null;
+        maxThumbnailUploads: number;
+        maxAudioRadiusMeters: number;
+        features: string[];
+      }>;
+    }>('/payments/owner-plans'),
+  getMyOwnerPlan: () =>
+    api.get<{
+      message: string;
+      data: {
+        currentPlan: string;
+        balance: number;
+        activeSubscription: {
+          id: string;
+          plan_key: string;
+          status: string;
+          starts_at: string;
+          ends_at: string | null;
+        } | null;
+        history: Array<{
+          id: string;
+          plan_key: string;
+          amount: number | string;
+          status: string;
+          payment_method: string;
+          starts_at: string;
+          ends_at: string | null;
+          created_at: string;
+        }>;
+      };
+    }>('/payments/owner-plans/me'),
+  subscribeOwnerPlan: (planKey: string) =>
+    api.post<{
+      message: string;
+      data: {
+        currentPlan: string;
+        wallet: {
+          previous_balance: number;
+          current_balance: number;
+          deducted: number;
+        };
+      };
+    }>('/payments/owner-plans/subscribe', { planKey }),
 };
 
 export const languageApi = {
@@ -211,6 +262,7 @@ export const dashboardApi = {
 // API trung tâm cho tracking thiết bị (đi qua interceptor để tự gắn token nếu có).
 export const deviceApi = {
   identify: (payload: DeviceIdentifyPayload) => api.post('/device/identify', payload),
+  getLogs: (limit: number = 30) => api.get('/device/logs', { params: { limit } }),
 };
 
 /**
