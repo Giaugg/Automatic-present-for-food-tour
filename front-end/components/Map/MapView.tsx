@@ -58,24 +58,6 @@ const calculateDistanceMeters = (from: [number, number], to: [number, number]) =
   return earthRadius * c;
 };
 
-const getRelativeDirection = (from: [number, number], to: [number, number]) => {
-  const dLat = to[0] - from[0];
-  const dLon = to[1] - from[1];
-
-  // Chia 8 hướng tương đối theo trục bản đồ (Bắc ở phía trên).
-  const angle = (Math.atan2(dLon, dLat) * 180) / Math.PI;
-  const normalized = (angle + 360) % 360;
-
-  if (normalized >= 337.5 || normalized < 22.5) return { arrow: "↑", label: "Phia truoc" };
-  if (normalized < 67.5) return { arrow: "↗", label: "Chech phai phia truoc" };
-  if (normalized < 112.5) return { arrow: "→", label: "Ben phai" };
-  if (normalized < 157.5) return { arrow: "↘", label: "Chech phai phia sau" };
-  if (normalized < 202.5) return { arrow: "↓", label: "Phia sau" };
-  if (normalized < 247.5) return { arrow: "↙", label: "Chech trai phia sau" };
-  if (normalized < 292.5) return { arrow: "←", label: "Ben trai" };
-  return { arrow: "↖", label: "Chech trai phia truoc" };
-};
-
 export default function MapView() {
   const router = useRouter();
 
@@ -118,6 +100,8 @@ export default function MapView() {
   const currentPos: [number, number] = sim.useManual 
     ? [sim.manualPos.lat, sim.manualPos.lng] 
     : [latitude || 10.7769, longitude || 106.7009];
+  const currentLat = currentPos[0];
+  const currentLng = currentPos[1];
     
   const nearbyItems = useNearbyPois(pois, currentPos[0], currentPos[1]);
 
@@ -146,7 +130,7 @@ export default function MapView() {
   }, []);
 
   const loadTours = useCallback(async () => {
-    const lang = localStorage.getItem("preferred_lang") || "vi-VN";
+    const lang = "vi-VN";
     try {
       const tourRes = await tourApi.getAll(lang, false);
       setTours(tourRes.data || []);
@@ -187,9 +171,22 @@ export default function MapView() {
   }, [isMounted, loadTours]);
 
   useEffect(() => {
+    if (!isMounted) return;
+
+    const handleLangChange = () => {
+      setLoading(true);
+      loadPois();
+      loadTours();
+    };
+
+    window.addEventListener("lang-change", handleLangChange);
+    return () => window.removeEventListener("lang-change", handleLangChange);
+  }, [isMounted, loadPois, loadTours]);
+
+  useEffect(() => {
     if (!isMounted || loading) return;
-    sim.handleProximityAudio(currentPos[0], currentPos[1]);
-  }, [isMounted, loading, currentPos[0], currentPos[1], sim.handleProximityAudio]);
+    sim.handleProximityAudio(currentLat, currentLng);
+  }, [isMounted, loading, currentLat, currentLng, sim.handleProximityAudio]);
 
   // --- HÀM XỬ LÝ KHI BẤM VÀO QUÁN ĂN TRÊN PANEL ---
   const handleSelectNearby = (poi: any) => {
@@ -251,7 +248,7 @@ export default function MapView() {
 
     setStartingTourId(tourId);
     try {
-      const lang = localStorage.getItem("preferred_lang") || "vi-VN";
+      const lang = "vi-VN";
       const res = await tourApi.getDetails(tourId, lang);
       const stops = (res.data?.stops || []).slice().sort((a: any, b: any) => a.step_order - b.step_order);
 
@@ -299,6 +296,37 @@ export default function MapView() {
     setBuyingTourId(tourId);
     try {
       const purchaseRes = await tourApi.purchase(tourId);
+      const latestBalance = Number(purchaseRes?.data?.wallet?.current_balance);
+      const rewardPoints = Number(purchaseRes?.data?.reward_points || 0);
+
+      if (typeof window !== "undefined") {
+        try {
+          const storedUser = localStorage.getItem("user");
+          if (storedUser) {
+            const parsedUser = JSON.parse(storedUser);
+            const nextUser = {
+              ...parsedUser,
+              balance: Number.isFinite(latestBalance)
+                ? latestBalance
+                : Number(parsedUser?.balance || 0),
+              points: Number(parsedUser?.points || 0) + (Number.isFinite(rewardPoints) ? rewardPoints : 0),
+            };
+            localStorage.setItem("user", JSON.stringify(nextUser));
+
+            window.dispatchEvent(
+              new CustomEvent("user-local-update", {
+                detail: {
+                  balance: nextUser.balance,
+                  points: nextUser.points,
+                },
+              })
+            );
+          }
+        } catch (e) {
+          console.warn("Cannot update local user after purchase", e);
+        }
+      }
+
       setPurchasedTourIds((prev) => (prev.includes(tourId) ? prev : [...prev, tourId]));
       setPurchaseMapByTourId((prev) => ({
         ...prev,
@@ -384,14 +412,10 @@ export default function MapView() {
     ? calculateDistanceMeters(currentPos, [activeStep.latitude, activeStep.longitude])
     : null;
 
-  const activeStepDirection = activeStep
-    ? getRelativeDirection(currentPos, [activeStep.latitude, activeStep.longitude])
-    : null;
-
   // Vẽ tuyến đường ngắn nhất tới POI kế tiếp trong chế độ dẫn tour.
   useEffect(() => {
     if (!isTourGuideMode || !activeStep) {
-      setTourRouteCoords([]);
+      setTourRouteCoords((prev) => (prev.length === 0 ? prev : []));
       lastRouteFetchRef.current = null;
       return;
     }
@@ -402,7 +426,7 @@ export default function MapView() {
     if (
       last &&
       last.poiId === String(activeStep.poi_id || "") &&
-      calculateDistanceMeters(last.from, currentPos) < 15
+      calculateDistanceMeters(last.from, [currentLat, currentLng]) < 15
     ) {
       return;
     }
@@ -410,7 +434,7 @@ export default function MapView() {
     const abortController = new AbortController();
     const timer = window.setTimeout(async () => {
       try {
-        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${currentPos[1]},${currentPos[0]};${destination[1]},${destination[0]}?overview=full&geometries=geojson&alternatives=true&steps=false`;
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${currentLng},${currentLat};${destination[1]},${destination[0]}?overview=full&geometries=geojson&alternatives=true&steps=false`;
         const response = await fetch(osrmUrl, { signal: abortController.signal });
         if (!response.ok) {
           throw new Error(`OSRM status ${response.status}`);
@@ -436,7 +460,7 @@ export default function MapView() {
           const route = geometry.map((coord: [number, number]) => [coord[1], coord[0]] as [number, number]);
           setTourRouteCoords(route);
           lastRouteFetchRef.current = {
-            from: [currentPos[0], currentPos[1]],
+            from: [currentLat, currentLng],
             poiId: String(activeStep.poi_id || ""),
           };
           return;
@@ -447,11 +471,11 @@ export default function MapView() {
         if (error?.name === "AbortError") return;
         // Fallback đường thẳng khi API định tuyến không khả dụng.
         setTourRouteCoords([
-          [currentPos[0], currentPos[1]],
+          [currentLat, currentLng],
           destination,
         ]);
         lastRouteFetchRef.current = {
-          from: [currentPos[0], currentPos[1]],
+          from: [currentLat, currentLng],
           poiId: String(activeStep.poi_id || ""),
         };
       }
@@ -461,7 +485,7 @@ export default function MapView() {
       abortController.abort();
       window.clearTimeout(timer);
     };
-  }, [isTourGuideMode, activeStep, currentPos]);
+  }, [isTourGuideMode, activeStep, currentLat, currentLng]);
 
   // --- GIAO DIỆN LOADING ---
   if (!isMounted || loading) return (
@@ -634,21 +658,13 @@ return (
                 <p className="text-sm font-black text-slate-800 mt-1">{activeStep.name || "Diem dung"}</p>
                 <p className="text-xs text-slate-500 mt-1">{activeStep.category || "food"}</p>
 
-                <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+                <div className="mt-3 grid grid-cols-1 gap-2 text-[11px]">
                   <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
                     <p className="text-[9px] uppercase font-black text-slate-400">Khoang cach con lai</p>
                     <p className="font-black text-slate-800">
                       {typeof activeStepDistanceMeters === "number"
                         ? `${Math.round(activeStepDistanceMeters)} m`
                         : "---"}
-                    </p>
-                  </div>
-
-                  <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-                    <p className="text-[9px] uppercase font-black text-slate-400">Huong tuong doi</p>
-                    <p className="font-black text-slate-800 flex items-center gap-1">
-                      <span className="text-base leading-none">{activeStepDirection?.arrow || "•"}</span>
-                      <span>{activeStepDirection?.label || "---"}</span>
                     </p>
                   </div>
                 </div>

@@ -6,7 +6,6 @@ import {
   CheckCircle2, 
   AlertCircle, 
   PieChart as PieIcon,
-  PlusCircle,
   RefreshCw,
   Crown,
   Wallet,
@@ -85,18 +84,11 @@ export default function OwnerPage() {
 
   return (
     <main className="p-8 space-y-8 bg-gray-50/50 min-h-screen">
-      <div className="flex justify-between items-end">
+      <div>
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Khu vực Chủ sở hữu</h1>
           <p className="text-muted-foreground">Quản lý và theo dõi các địa điểm của bạn</p>
         </div>
-        <Link 
-          href="/owner/pois/create" 
-          className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-all shadow-sm"
-        >
-          <PlusCircle className="w-4 h-4" />
-          Thêm địa điểm mới
-        </Link>
       </div>
 
       {/* 1. Hàng Thống kê nhanh */}

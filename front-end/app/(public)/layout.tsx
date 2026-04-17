@@ -92,6 +92,28 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     return () => window.removeEventListener("auth-change", syncUser);
   }, [syncUser]);
 
+  useEffect(() => {
+    const handleUserLocalUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<{ balance?: number; points?: number }>;
+      const nextBalance = Number(customEvent.detail?.balance);
+      const nextPoints = Number(customEvent.detail?.points);
+
+      setUser((prev) => {
+        if (!prev) return prev;
+        const updated = {
+          ...prev,
+          balance: Number.isFinite(nextBalance) ? nextBalance : prev.balance,
+          points: Number.isFinite(nextPoints) ? nextPoints : prev.points,
+        };
+        localStorage.setItem("user", JSON.stringify(updated));
+        return updated;
+      });
+    };
+
+    window.addEventListener("user-local-update", handleUserLocalUpdate as EventListener);
+    return () => window.removeEventListener("user-local-update", handleUserLocalUpdate as EventListener);
+  }, []);
+
   // Helper hiển thị Flag dựa trên mã code (vi-VN, en-US, ja-JP)
   const getFlag = (code: string) => {
     const c = code.toLowerCase();

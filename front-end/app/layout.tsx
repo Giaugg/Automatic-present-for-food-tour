@@ -14,8 +14,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi">
-      <body>
+    <html lang="vi" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         {/* Gắn tracker ở layout gốc để mọi trang đều ghi nhận thiết bị. */}
         <DeviceTracker />
         <ToastProvider />

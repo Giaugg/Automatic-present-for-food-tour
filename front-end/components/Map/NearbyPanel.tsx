@@ -13,7 +13,7 @@ export default function NearbyPanel({ items, onSelect, loading }: NearbyPanelPro
   // console.log("Nearby Items in Panel:", items);
 
   return (
-    <div className="absolute top-10 left-6 z-[9999] w-80 pointer-events-auto bg-white/95 backdrop-blur-xl p-5 rounded-[2.5rem] shadow-2xl border border-white/50 transition-all duration-500">
+    <div className="absolute top-10 z-[9999] w-80 pointer-events-auto bg-white/95 backdrop-blur-xl p-5 rounded-[2.5rem] shadow-2xl border border-white/50 transition-all duration-500">
       {/* Tiêu đề Panel */}
       <div className="flex items-center gap-2 mb-4 ml-2">
         <div className="bg-orange-600 p-2 rounded-xl shadow-lg shadow-orange-200 animate-bounce">
