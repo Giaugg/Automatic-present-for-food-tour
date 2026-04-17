@@ -170,7 +170,17 @@ export default function AdminPOIManagement() {
   const getPoiQrTargetUrl = (poi: any) => {
     if (typeof window === "undefined") return "";
     const lang = localStorage.getItem("preferred_lang") || "vi-VN";
-    return `${window.location.origin}/map/${poi.id}?lang=${encodeURIComponent(lang)}&autoplay=1&src=qr`;
+    const configuredBasePath = (process.env.NEXT_PUBLIC_BASE_PATH || "").trim();
+    const normalizedBasePath = configuredBasePath
+      ? `/${configuredBasePath.replace(/^\/+|\/+$/g, "")}`
+      : "";
+
+    const targetUrl = new URL(`${normalizedBasePath}/map/${poi.id}`, window.location.origin);
+    targetUrl.searchParams.set("lang", lang);
+    targetUrl.searchParams.set("autoplay", "1");
+    targetUrl.searchParams.set("src", "qr");
+
+    return targetUrl.toString();
   };
 
   const copyQrLink = async (poi: any) => {
