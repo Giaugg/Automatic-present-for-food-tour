@@ -22,7 +22,7 @@ export default function MapPopup({ poi, activeAudioKey, toggleAudio }: MapPopupP
   };
 
   return (
-    <div className="flex flex-col bg-white overflow-hidden rounded-[1.25rem] w-[340px] max-w-[92vw] md:w-[380px] shadow-2xl border border-slate-100">
+    <div className="flex flex-col bg-white overflow-hidden rounded-[1.25rem] w-full shadow-2xl border border-slate-100">
       
       {/* --- PHẦN HÌNH ẢNH (HEADER) --- */}
       <div className="relative h-40 md:h-44 overflow-hidden bg-slate-200">

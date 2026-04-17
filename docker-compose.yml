@@ -42,6 +42,9 @@ services:
     environment:
       NEXT_PUBLIC_API_SOURCE: local
       NEXT_PUBLIC_API_URL: http://localhost:5000
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "1000"
     # --- PHẦN SỬA ĐỔI ĐỂ TỰ CẬP NHẬT CODE ---
     volumes:
       - ./front-end:/app

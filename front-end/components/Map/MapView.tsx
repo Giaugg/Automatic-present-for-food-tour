@@ -261,6 +261,7 @@ export default function MapView() {
       setActiveTourId(tourId);
       setActiveTourStops(stops);
       setActivePurchaseId(purchase.purchase_id);
+      setIsTourStoreOpen(false);
 
       const savedProgress = Number(purchase.progress_step || 0);
       const startIndex = Math.max(0, Math.min(stops.length - 1, savedProgress > 0 ? savedProgress - 1 : 0));
@@ -278,6 +279,7 @@ export default function MapView() {
     setActivePurchaseId(null);
     setActiveTourStops([]);
     setActiveTourStepIndex(0);
+    setIsTourStoreOpen(true);
     toast.success("Đã kết thúc chế độ dẫn tour");
   };
 
@@ -337,8 +339,10 @@ export default function MapView() {
   };
 
   const isMobileViewport = isMounted && typeof window !== "undefined" && window.innerWidth < 768;
+  const popupWidth = isMobileViewport ? 300 : 380;
   const popupOffset: [number, number] = isMobileViewport ? [0, -210] : [0, -180];
   const activeTour = tours.find((t) => t.id === activeTourId) || null;
+  const isTourGuideMode = !!activeTourId;
   const activeStep = activeTourStops[activeTourStepIndex] || null;
   const canGoPrevStep = activeTourStepIndex > 0;
   const canGoNextStep = activeTourStepIndex < activeTourStops.length - 1;
@@ -382,7 +386,7 @@ export default function MapView() {
 
   // --- GIAO DIỆN LOADING ---
   if (!isMounted || loading) return (
-    <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 gap-4">
+    <div className="h-full w-full flex flex-col items-center justify-center bg-slate-50 gap-4">
       <Loader2 className="animate-spin text-blue-600" size={40} />
       <div className="font-black text-slate-400 tracking-tighter uppercase text-sm">
         Initializing Voyager Map...
@@ -391,7 +395,7 @@ export default function MapView() {
   );
 
 return (
-    <div className="h-[100dvh] w-full relative bg-slate-100 overflow-hidden font-sans flex flex-col md:block">
+    <div className="h-full w-full relative bg-slate-100 overflow-hidden font-sans flex flex-col md:block">
       
       {/* 1. MOBILE HEADER (Chỉ hiện trên điện thoại) */}
       <div className="md:hidden bg-white/90 backdrop-blur-md px-4 py-3 z-[901] border-b flex justify-between items-center shadow-sm">
@@ -410,8 +414,8 @@ return (
       </div>
 
       {/* 2. SIMULATOR PANEL (Desktop: Góc phải | Mobile: Thu gọn lên trên) */}
-      <div className="hidden md:block absolute top-20 right-4 z-[908] md:top-4 md:right-4 pointer-events-auto">
-        <div className={`${!sim.useManual && 'opacity-50 md:opacity-100'} transition-opacity`}>
+      <div className="hidden md:block absolute top-20 right-4 z-[908] md:top-2 md:right-4 pointer-events-auto">
+        <div className={`${!sim.useManual && 'opacity-50 md:opacity-50'} transition-opacity`}>
           <SimulatorPanel 
             useManual={sim.useManual} 
             setUseManual={sim.setUseManual}
@@ -423,7 +427,7 @@ return (
         </div>
       </div>
 
-      {isMobileViewport && (
+      {isMobileViewport && !isTourGuideMode && (
         <button
           onClick={() => setIsTourStoreOpen((prev) => !prev)}
           className="fixed right-4 bottom-[190px] z-[904] px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black shadow-xl"
@@ -433,11 +437,12 @@ return (
       )}
 
       {/* TOUR BUY PANEL */}
+      {!isTourGuideMode && (
       <div
         className={`fixed left-4 right-4 md:left-auto md:right-4 z-[903] pointer-events-auto transition-all duration-300 ${
           isMobileViewport
             ? `bottom-[230px] ${isTourStoreOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6 pointer-events-none'}`
-            : 'top-[300px] md:w-[360px] opacity-100 translate-y-0'
+            : 'md:bottom-4 md:w-[360px] opacity-100 translate-y-0'
         }`}
       >
         <div className="rounded-3xl bg-white/95 backdrop-blur-xl border border-white/70 shadow-2xl overflow-hidden">
@@ -523,8 +528,9 @@ return (
           </div>
         </div>
       </div>
+      )}
 
-      {activeTour && activeStep && (
+      {isTourGuideMode && activeTour && activeStep && (
         <div className="fixed left-4 right-4 bottom-[260px] md:left-auto md:right-4 md:w-[360px] md:bottom-4 z-[904] pointer-events-auto">
           <div className="rounded-3xl border border-emerald-200 bg-white/95 backdrop-blur-xl shadow-2xl overflow-hidden">
             <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between gap-2">
@@ -599,7 +605,7 @@ return (
       {!isSidebarVisible && nowPlayingPoi && (
         <button
           onClick={() => setIsSidebarClosed(false)}
-          className="fixed z-[906] left-4 top-20 md:top-4 px-3 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-xl"
+          className="fixed z-[906] left-4 top-20 md:top-20 px-3 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold shadow-xl"
         >
           Mo thong tin quán
         </button>
@@ -608,7 +614,7 @@ return (
       {/* SLIDEBAR ĐANG PHÁT: xuất hiện khi user đi vào trigger audio */}
       <aside
         className={`fixed z-[906] bg-white/95 backdrop-blur-xl border-r border-white/70 shadow-2xl transition-all duration-500 ease-out
-          top-0 left-0 h-full w-[340px]
+          top-16 left-0 h-[calc(100%-4rem)] w-[340px]
           ${isSidebarVisible ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 pointer-events-none'}`}
       >
         <div className="h-full flex flex-col">
@@ -802,8 +808,8 @@ return (
               >
                 <Popup
                   className="custom-popup"
-                  minWidth={isMobileViewport ? 300 : 360}
-                  maxWidth={420}
+                  minWidth={popupWidth}
+                  maxWidth={popupWidth}
                   offset={popupOffset}
                   autoPanPaddingBottomRight={[24, 280]}
                   autoPanPaddingTopLeft={[24, 24]}
@@ -835,8 +841,8 @@ return (
         
         .custom-popup .leaflet-popup-content {
           margin: 0;
-          width: auto !important;
-          min-width: 300px;
+          width: 100% !important;
+          min-width: 0;
         }
         .custom-popup .leaflet-popup-tip-container { display: none; }
         .custom-popup .leaflet-popup-close-button { top: 8px; right: 8px; color: #334155; }
@@ -846,7 +852,7 @@ return (
           .leaflet-marker-icon { cursor: pointer; }
           .custom-popup { margin-bottom: 210px; }
           .custom-popup .leaflet-popup-content-wrapper { border-radius: 1.25rem; }
-          .custom-popup .leaflet-popup-content { min-width: 280px; }
+          .custom-popup .leaflet-popup-content { width: 100% !important; min-width: 0; }
         }
 
         .scrollbar-hide::-webkit-scrollbar { display: none; }

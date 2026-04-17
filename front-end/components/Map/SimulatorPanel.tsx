@@ -19,7 +19,7 @@ export default function SimulatorPanel({
   setMoveSpeed 
 }: SimulatorPanelProps) {
   return (
-    <div className="w-[min(18rem,calc(100vw-2rem))] bg-white/95 backdrop-blur-xl p-4 md:p-5 rounded-[2rem] shadow-2xl border border-white/50 transition-all duration-500">
+    <div className="w-[min(18rem,calc(100vw-2rem))] bg-white/95 backdrop-blur-xl p-4 md:p-5 rounded-[2rem] shadow-lg border border-white/50 transition-all duration-500">
       
       {/* Header: Toggle Switch */}
       <div className="flex items-center justify-between mb-3 md:mb-4">

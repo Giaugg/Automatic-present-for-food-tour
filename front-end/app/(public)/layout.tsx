@@ -27,6 +27,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
 
   const router = useRouter();
   const pathname = usePathname();
+  const isMapPage = pathname === "/map";
 
   // 1. Fetch danh sách ngôn ngữ đang hoạt động từ DB
   const fetchActiveLanguages = useCallback(async () => {
@@ -103,7 +104,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className={isMapPage ? "h-[100dvh] overflow-hidden bg-background text-foreground" : "min-h-screen bg-background text-foreground"}>
       <header className="bg-card border-b border-border sticky top-0 z-[3000] shadow-sm">
         <nav className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
@@ -214,7 +215,9 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         </nav>
       </header>
 
-      <main className="min-h-[calc(100vh-64px)]">{children}</main>
+      <main className={isMapPage ? "h-[calc(100dvh-4rem)] overflow-hidden" : "min-h-[calc(100vh-64px)]"}>
+        {children}
+      </main>
 
       {/* --- MODAL CHỌN NGÔN NGỮ KHỞI TẠO (DYNAMIC) --- */}
       {showLangModal && activeLanguages.length > 0 && (
