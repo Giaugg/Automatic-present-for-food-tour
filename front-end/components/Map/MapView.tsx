@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useRouter } from "next/navigation";
@@ -104,10 +104,12 @@ export default function MapView() {
   const [startingTourId, setStartingTourId] = useState<string | null>(null);
   const [activePurchaseId, setActivePurchaseId] = useState<string | null>(null);
   const [isTourStoreOpen, setIsTourStoreOpen] = useState(false);
+  const [tourRouteCoords, setTourRouteCoords] = useState<Array<[number, number]>>([]);
 
   // 3. Ref để quản lý Marker (Dùng để mở Popup từ Nearby Panel)
   const markerRefs = useRef<{ [key: string]: any }>({});
   const mapRef = useRef<L.Map | null>(null);
+  const lastRouteFetchRef = useRef<{ from: [number, number]; poiId: string } | null>(null);
 
   // 4. Custom Hook xử lý Logic Giả lập (AWSD + Auto-Audio)
   const sim = useMapSimulation(pois, activeAudioKey, toggleAudio, stopAudio);
@@ -280,6 +282,8 @@ export default function MapView() {
     setActiveTourStops([]);
     setActiveTourStepIndex(0);
     setIsTourStoreOpen(true);
+    setTourRouteCoords([]);
+    lastRouteFetchRef.current = null;
     toast.success("Đã kết thúc chế độ dẫn tour");
   };
 
@@ -383,6 +387,81 @@ export default function MapView() {
   const activeStepDirection = activeStep
     ? getRelativeDirection(currentPos, [activeStep.latitude, activeStep.longitude])
     : null;
+
+  // Vẽ tuyến đường ngắn nhất tới POI kế tiếp trong chế độ dẫn tour.
+  useEffect(() => {
+    if (!isTourGuideMode || !activeStep) {
+      setTourRouteCoords([]);
+      lastRouteFetchRef.current = null;
+      return;
+    }
+
+    const destination: [number, number] = [activeStep.latitude, activeStep.longitude];
+    const last = lastRouteFetchRef.current;
+
+    if (
+      last &&
+      last.poiId === String(activeStep.poi_id || "") &&
+      calculateDistanceMeters(last.from, currentPos) < 15
+    ) {
+      return;
+    }
+
+    const abortController = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${currentPos[1]},${currentPos[0]};${destination[1]},${destination[0]}?overview=full&geometries=geojson&alternatives=true&steps=false`;
+        const response = await fetch(osrmUrl, { signal: abortController.signal });
+        if (!response.ok) {
+          throw new Error(`OSRM status ${response.status}`);
+        }
+
+        const data = await response.json();
+        type OsrmRoute = {
+          distance?: number;
+          geometry?: {
+            coordinates?: Array<[number, number]>;
+          };
+        };
+        const routes: OsrmRoute[] = Array.isArray(data?.routes) ? data.routes : [];
+        const bestRoute = routes.reduce<OsrmRoute | null>((best, route) => {
+          if (!best) return route;
+          return Number(route?.distance || Number.MAX_SAFE_INTEGER) < Number(best?.distance || Number.MAX_SAFE_INTEGER)
+            ? route
+            : best;
+        }, null);
+        const geometry = bestRoute?.geometry?.coordinates;
+
+        if (Array.isArray(geometry) && geometry.length >= 2) {
+          const route = geometry.map((coord: [number, number]) => [coord[1], coord[0]] as [number, number]);
+          setTourRouteCoords(route);
+          lastRouteFetchRef.current = {
+            from: [currentPos[0], currentPos[1]],
+            poiId: String(activeStep.poi_id || ""),
+          };
+          return;
+        }
+
+        throw new Error("No route geometry");
+      } catch (error: any) {
+        if (error?.name === "AbortError") return;
+        // Fallback đường thẳng khi API định tuyến không khả dụng.
+        setTourRouteCoords([
+          [currentPos[0], currentPos[1]],
+          destination,
+        ]);
+        lastRouteFetchRef.current = {
+          from: [currentPos[0], currentPos[1]],
+          poiId: String(activeStep.poi_id || ""),
+        };
+      }
+    }, 250);
+
+    return () => {
+      abortController.abort();
+      window.clearTimeout(timer);
+    };
+  }, [isTourGuideMode, activeStep, currentPos]);
 
   // --- GIAO DIỆN LOADING ---
   if (!isMounted || loading) return (
@@ -533,7 +612,7 @@ return (
       {isTourGuideMode && activeTour && activeStep && (
         <div className="fixed left-4 right-4 bottom-[260px] md:left-auto md:right-4 md:w-[360px] md:bottom-4 z-[904] pointer-events-auto">
           <div className="rounded-3xl border border-emerald-200 bg-white/95 backdrop-blur-xl shadow-2xl overflow-hidden">
-            <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between gap-2">
+            <div className="px-4 py-2 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between gap-1">
               <div>
                 <p className="text-[10px] uppercase tracking-widest font-black text-emerald-700">Che do dan tour</p>
                 <h4 className="text-sm font-black text-slate-800 truncate">{activeTour.title || "Tour"}</h4>
@@ -546,7 +625,7 @@ return (
               </button>
             </div>
 
-            <div className="p-4 space-y-3">
+            <div className="p-3 space-y-3">
               <div className="rounded-xl border border-slate-200 p-3 bg-slate-50">
                 <p className="text-[10px] uppercase font-black tracking-wider text-slate-500">
                   Buoc {activeTourStepIndex + 1}/{activeTourStops.length}
@@ -761,6 +840,20 @@ return (
             }}
           />
 
+          {isTourGuideMode && tourRouteCoords.length >= 2 && (
+            <Polyline
+              positions={tourRouteCoords}
+              pathOptions={{
+                color: "#0ea5e9",
+                weight: isMobileViewport ? 5 : 6,
+                opacity: 0.9,
+                dashArray: "10 12",
+                lineCap: "round",
+                lineJoin: "round",
+              }}
+            />
+          )}
+
           {/* POI Markers */}
           {pois.map((poi) => (
             <div key={poi.id}>
@@ -847,7 +940,7 @@ return (
         }
         .custom-popup .leaflet-popup-tip-container { display: none; }
         .custom-popup .leaflet-popup-close-button { top: 8px; right: 8px; color: #334155; }
-        
+
         /* Tối ưu hóa vùng chạm trên mobile */
         @media (max-width: 768px) {
           .leaflet-marker-icon { cursor: pointer; }
