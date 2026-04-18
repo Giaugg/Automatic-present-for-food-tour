@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { poiApi, languageApi } from "@/lib/api";
-import { getApiBaseUrl } from "@/lib/apiBaseUrl";
+import { getFullAudioUrl } from "@/lib/api";
 import { toast } from "react-hot-toast";
 import CreatePoiModal from "@/components/poi/CreatePoiModal";
 import EditPoiModal from "@/components/poi/EditPoiModal";
@@ -19,8 +19,6 @@ import {
   Copy,
   ExternalLink
 } from "lucide-react";
-
-const API_URL = getApiBaseUrl();
 
 export default function AdminPOIManagement() {
   // --- States ---
@@ -98,17 +96,11 @@ export default function AdminPOIManagement() {
     if (audioRef.current) audioRef.current.pause();
 
     // Chuẩn hóa URL: http://localhost:5000/uploads/audio/...
-    let finalUrl = url;
-    if (!url.startsWith('http')) {
-      const cleanPath = url.startsWith('/') ? url : `/${url}`;
-      // Nếu backend lưu "/audio/abc.mp3", ta nối thêm /uploads
-      finalUrl = `${API_URL}/${cleanPath}`;
-    }
-
+    const finalUrl = getFullAudioUrl(url) || url;
+    console.log("Original audio URL:", finalUrl);
     // Anti-cache string
-    const urlWithVersion = `${finalUrl}${finalUrl.includes('?') ? '&' : '?'}v=${Date.now()}`;
 
-    const audio = new Audio(urlWithVersion);
+    const audio = new Audio(finalUrl);
     audioRef.current = audio;
     setActiveAudioKey(key);
 
