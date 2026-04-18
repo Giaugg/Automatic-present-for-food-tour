@@ -41,8 +41,9 @@ const getBaseUrl = async () => {
     
     // Kiểm tra cấu trúc dữ liệu trả về
     if (response.data && response.data.apiUrl) {
-      dynamicApiUrl = response.data.apiUrl;
-      console.log("✅ API URL updated from GitHub:", dynamicApiUrl);
+      dynamicApiUrl = response.data.apiUrl || getApiBaseUrl(); // Fallback nếu apiUrl rỗng
+      console.log("✅ API link:", dynamicApiUrl);
+      localStorage.setItem('apiUrl', dynamicApiUrl || ''); // Lưu vào localStorage để dùng cho các lần sau
       return dynamicApiUrl;
     }
     throw new Error("Invalid JSON structure");
@@ -289,13 +290,13 @@ export const getFileUrl = (path: string | null) => {
   if (!path) return "/placeholder.png";
   if (path.startsWith('http')) return path;
 
-  const persistedApiBase = typeof window !== 'undefined' ? localStorage.getItem('apiBaseUrl') : null;
+  const persistedApiBase = typeof window !== 'undefined' ? localStorage.getItem('apiUrl') : null;
   const baseUrl = persistedApiBase || dynamicApiUrl || getApiBaseUrl();
   
   // Chuẩn hóa đường dẫn: đảm bảo không bị double slash //
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
 
-  console.log(baseUrl,cleanPath);
+  // console.log(baseUrl,cleanPath);
   
   return `${baseUrl}${cleanPath}`;
 };

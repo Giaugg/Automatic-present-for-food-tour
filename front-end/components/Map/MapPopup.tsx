@@ -1,7 +1,6 @@
 // components/Map/MapPopup.tsx
 import { Headphones, Info } from "lucide-react";
-import { getFileUrl } from "@/lib/api";
-import { getFullAudioUrl } from "./MapUtils";
+import { getFileUrl,getFullAudioUrl  } from "@/lib/api";
 import toast from "react-hot-toast";
 
 interface MapPopupProps {
@@ -14,6 +13,7 @@ export default function MapPopup({ poi, activeAudioKey, toggleAudio }: MapPopupP
   
   const handleAudioClick = () => {
     const url = getFullAudioUrl(poi.audio_url);
+    console.log("Audio URL for POI", poi.id, ":", poi);
     if (!url) {
       toast.error("Địa điểm này chưa có thuyết minh âm thanh!");
       return;
