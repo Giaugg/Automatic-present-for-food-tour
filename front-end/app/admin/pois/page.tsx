@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { poiApi, languageApi } from "@/lib/api";
+import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { toast } from "react-hot-toast";
 import CreatePoiModal from "@/components/poi/CreatePoiModal";
 import EditPoiModal from "@/components/poi/EditPoiModal";
@@ -13,10 +14,13 @@ import {
   Trash2, 
   Edit3, 
   Volume2, 
-  Languages 
+  Languages,
+  QrCode,
+  Copy,
+  ExternalLink
 } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_URL = getApiBaseUrl();
 
 export default function AdminPOIManagement() {
   // --- States ---
@@ -24,11 +28,13 @@ export default function AdminPOIManagement() {
   const [languages, setLanguages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeAudioKey, setActiveAudioKey] = useState<string | null>(null);
+  const [deletingAudioKey, setDeletingAudioKey] = useState<string | null>(null);
   
   // Modal States
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedPoi, setSelectedPoi] = useState<any>(null);
+  const [qrPoi, setQrPoi] = useState<any>(null);
 
   // Refs
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -127,6 +133,29 @@ export default function AdminPOIManagement() {
     }
   };
 
+  const handleDeleteSingleAudio = async (poiId: string, translationId: string, langCode: string) => {
+    const key = `${poiId}_${langCode}`;
+    if (!confirm(`Xóa audio ngôn ngữ ${langCode} cho POI này?`)) return;
+
+    setDeletingAudioKey(key);
+    const tid = toast.loading(`Đang xóa audio ${langCode}...`);
+    try {
+      await poiApi.deleteAudio(poiId, translationId);
+
+      if (activeAudioKey === key) {
+        audioRef.current?.pause();
+        setActiveAudioKey(null);
+      }
+
+      toast.success("Đã xóa audio thành công", { id: tid });
+      await fetchPOIs();
+    } catch (err) {
+      toast.error("Xóa audio thất bại", { id: tid });
+    } finally {
+      setDeletingAudioKey(null);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa địa điểm này và toàn bộ bản dịch liên quan?")) return;
     try {
@@ -135,6 +164,31 @@ export default function AdminPOIManagement() {
       fetchPOIs();
     } catch (err) {
       toast.error("Xóa thất bại");
+    }
+  };
+
+  const getPoiQrTargetUrl = (poi: any) => {
+    if (typeof window === "undefined") return "";
+    const lang = localStorage.getItem("preferred_lang") || "vi-VN";
+    const configuredBasePath = (process.env.NEXT_PUBLIC_BASE_PATH || "").trim();
+    const normalizedBasePath = configuredBasePath
+      ? `/${configuredBasePath.replace(/^\/+|\/+$/g, "")}`
+      : "";
+
+    const targetUrl = new URL(`${normalizedBasePath}/map/${poi.id}`, window.location.origin);
+    targetUrl.searchParams.set("lang", lang);
+    targetUrl.searchParams.set("autoplay", "1");
+    targetUrl.searchParams.set("src", "qr");
+
+    return targetUrl.toString();
+  };
+
+  const copyQrLink = async (poi: any) => {
+    try {
+      await navigator.clipboard.writeText(getPoiQrTargetUrl(poi));
+      toast.success("Đã copy link QR");
+    } catch (err) {
+      toast.error("Không thể copy link");
     }
   };
 
@@ -202,28 +256,42 @@ export default function AdminPOIManagement() {
                     {languages.map((lang) => {
                       const trans = poi.all_translations?.find((t: any) => t.language_code === lang.code);
                       const isPlaying = activeAudioKey === `${poi.id}_${lang.code}`;
+                      const isDeleting = deletingAudioKey === `${poi.id}_${lang.code}`;
                       const hasAudio = !!trans?.audio_url;
 
                       return (
-                        <button
-                          key={lang.code}
-                          disabled={!hasAudio}
-                          onClick={() => handleToggleAudio(poi.id, lang.code, trans.audio_url)}
-                          className={`
-                            group relative px-4 py-2 rounded-xl border-2 border-black font-black text-[10px] flex items-center gap-2 transition-all
-                            ${hasAudio 
-                              ? (isPlaying ? "bg-black text-white scale-105 shadow-none" : "bg-white hover:bg-yellow-400 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]") 
-                              : "opacity-20 grayscale cursor-not-allowed"}
-                          `}
-                        >
-                          {isPlaying ? (
-                            <Pause size={12} fill="currentColor" />
-                          ) : (
-                            <Play size={12} fill={hasAudio ? "black" : "none"} />
+                        <div key={lang.code} className="flex items-center gap-1">
+                          <button
+                            disabled={!hasAudio || isDeleting}
+                            onClick={() => handleToggleAudio(poi.id, lang.code, trans?.audio_url || null)}
+                            className={`
+                              group relative px-4 py-2 rounded-xl border-2 border-black font-black text-[10px] flex items-center gap-2 transition-all
+                              ${hasAudio 
+                                ? (isPlaying ? "bg-black text-white scale-105 shadow-none" : "bg-white hover:bg-yellow-400 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]") 
+                                : "opacity-20 grayscale cursor-not-allowed"}
+                              ${isDeleting ? "opacity-60 cursor-wait" : ""}
+                            `}
+                          >
+                            {isPlaying ? (
+                              <Pause size={12} fill="currentColor" />
+                            ) : (
+                              <Play size={12} fill={hasAudio ? "black" : "none"} />
+                            )}
+                            {lang.code.split('-')[0].toUpperCase()}
+                            {!hasAudio && <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-black" />}
+                          </button>
+
+                          {hasAudio && trans?.id && (
+                            <button
+                              onClick={() => handleDeleteSingleAudio(poi.id, trans.id, lang.code)}
+                              title={`Xóa audio ${lang.code}`}
+                              disabled={isDeleting}
+                              className="h-8 w-8 flex items-center justify-center rounded-lg border-2 border-black bg-red-100 text-red-600 hover:bg-red-500 hover:text-white transition-colors disabled:opacity-60 disabled:cursor-wait"
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           )}
-                          {lang.code.split('-')[0].toUpperCase()}
-                          {!hasAudio && <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-black" />}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -258,6 +326,13 @@ export default function AdminPOIManagement() {
                     >
                       <Edit3 size={16} className="group-hover:-rotate-12 transition-transform" />
                       Edit
+                    </button>
+                    <button
+                      onClick={() => setQrPoi(poi)}
+                      className="flex items-center gap-1.5 hover:text-purple-600 group"
+                    >
+                      <QrCode size={16} className="group-hover:scale-110 transition-transform" />
+                      QR
                     </button>
                     <button 
                       onClick={() => handleDelete(poi.id)}
@@ -298,6 +373,58 @@ export default function AdminPOIManagement() {
           languages={languages} 
           onSuccess={fetchPOIs} 
         />
+      )}
+
+      {qrPoi && (
+        <div className="fixed inset-0 z-[2100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-3xl border-4 border-black shadow-[10px_10px_0_0_rgba(0,0,0,1)] p-6 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-500">QR cho quán (Admin)</p>
+                <h3 className="text-xl font-black leading-tight">{qrPoi.name}</h3>
+              </div>
+              <button
+                onClick={() => setQrPoi(null)}
+                className="px-2 py-1 rounded-lg border-2 border-black text-xs font-black"
+              >
+                Đóng
+              </button>
+            </div>
+
+            <div className="rounded-2xl border-2 border-dashed border-slate-300 p-4 bg-slate-50 flex items-center justify-center">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=${encodeURIComponent(getPoiQrTargetUrl(qrPoi))}`}
+                alt={`QR ${qrPoi.name}`}
+                className="w-64 h-64 object-contain"
+              />
+            </div>
+
+            <p className="text-xs text-slate-500 break-all bg-slate-100 rounded-xl p-3 border border-slate-200">
+              {getPoiQrTargetUrl(qrPoi)}
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => copyQrLink(qrPoi)}
+                className="py-2.5 rounded-xl border-2 border-black font-black text-xs uppercase flex items-center justify-center gap-2 hover:bg-slate-50"
+              >
+                <Copy size={14} /> Copy Link
+              </button>
+              <a
+                href={getPoiQrTargetUrl(qrPoi)}
+                target="_blank"
+                rel="noreferrer"
+                className="py-2.5 rounded-xl bg-blue-600 text-white font-black text-xs uppercase flex items-center justify-center gap-2"
+              >
+                <ExternalLink size={14} /> Mở thử
+              </a>
+            </div>
+
+            <p className="text-[11px] text-slate-500">
+              Người dùng quét QR sẽ vào trang chi tiết quán và tự phát audio nếu có file thuyết minh.
+            </p>
+          </div>
+        </div>
       )}
 
       {/* UI Note */}

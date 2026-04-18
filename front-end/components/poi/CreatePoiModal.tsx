@@ -17,6 +17,7 @@ interface POITranslationInput {
 interface POIFormData {
   latitude: number;
   longitude: number;
+  trigger_radius_meters: number;
   category: string;
   translations: POITranslationInput[];
 }
@@ -40,6 +41,7 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }: 
   const [formData, setFormData] = useState<POIFormData>({
     latitude: 10.7769,
     longitude: 106.7009,
+    trigger_radius_meters: 30,
     category: "Ẩm thực",
     translations: [],
   });
@@ -61,6 +63,7 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }: 
       setFormData({
         latitude: 10.7769,
         longitude: 106.7009,
+        trigger_radius_meters: 30,
         category: "Ẩm thực",
         translations: languages.map((l) => ({
           language_code: l.code,
@@ -110,6 +113,7 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }: 
       const data = new FormData();
       data.append('latitude', String(formData.latitude));
       data.append('longitude', String(formData.longitude));
+      data.append('trigger_radius_meters', String(formData.trigger_radius_meters));
       data.append('category', formData.category.trim());
       data.append('translations', JSON.stringify(formData.translations));
       
@@ -190,6 +194,19 @@ export default function CreatePoiModal({ open, onClose, languages, onSuccess }: 
                     onChange={e => setFormData({...formData, category: e.target.value})}
                   />
                </div>
+
+                  <div className="space-y-2 sm:col-span-2">
+                    <label className="block font-black text-xs uppercase opacity-40 tracking-widest">Audio Trigger Radius (m)</label>
+                    <input
+                      type="number"
+                      min={10}
+                      max={300}
+                      disabled={isSubmitting}
+                      className="w-full border-4 border-black p-4 rounded-2xl font-black outline-none focus:ring-4 ring-yellow-400/20 disabled:bg-gray-100 transition-all"
+                      value={formData.trigger_radius_meters}
+                      onChange={e => setFormData({ ...formData, trigger_radius_meters: Number(e.target.value) || 30 })}
+                    />
+                  </div>
             </div>
             
             <div className="space-y-2">

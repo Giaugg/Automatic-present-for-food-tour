@@ -13,7 +13,7 @@ export default function NearbyPanel({ items, onSelect, loading }: NearbyPanelPro
   // console.log("Nearby Items in Panel:", items);
 
   return (
-    <div className="absolute top-10 left-6 z-[9999] w-80 pointer-events-auto bg-white/95 backdrop-blur-xl p-5 rounded-[2.5rem] shadow-2xl border border-white/50 transition-all duration-500">
+    <div className="absolute top-10 z-[9999] w-80 pointer-events-auto bg-white/95 backdrop-blur-xl p-5 rounded-[2.5rem] shadow-2xl border border-white/50 transition-all duration-500">
       {/* Tiêu đề Panel */}
       <div className="flex items-center gap-2 mb-4 ml-2">
         <div className="bg-orange-600 p-2 rounded-xl shadow-lg shadow-orange-200 animate-bounce">
@@ -54,6 +54,11 @@ export default function NearbyPanel({ items, onSelect, loading }: NearbyPanelPro
                   {poi.name}
                 </h4>
                 <div className="flex items-center gap-1.5 mt-1">
+                  {poi.owner_plan === "premium" && (
+                    <div className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-md text-[8px] font-black uppercase border border-amber-200">
+                      Premium
+                    </div>
+                  )}
                   <div className="px-1.5 py-0.5 bg-slate-100 rounded-md text-[8px] font-black text-slate-500 uppercase">
                     {poi.category || "Food"}
                   </div>

@@ -1,5 +1,7 @@
 // components/Map/MapUtils.ts
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+import { getApiBaseUrl } from '@/lib/apiBaseUrl';
+
+const API_URL = getApiBaseUrl();
 
 export const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371; 
@@ -14,6 +16,5 @@ export const getDistance = (lat1: number, lon1: number, lat2: number, lon2: numb
 export const getFullAudioUrl = (url: string | null) => {
   if (!url || url === "null") return null;
   const path = url.startsWith('/uploads') ? url : `/uploads${url.startsWith('/') ? url : `/${url}`}`;
-  console.log("🔗 Full audio URL:", `${API_URL}${path}`);
   return `${API_URL}${path}`;
 };

@@ -6,7 +6,8 @@ import { POIWithTranslation } from "@/types/pois";
 export function useMapSimulation(
   pois: POIWithTranslation[], 
   activeAudioKey: string | null, 
-  toggleAudio: (id: string, url: string) => void
+  toggleAudio: (id: string, url: string) => void,
+  stopAudio: () => void
 ) {
   const [useManual, setUseManual] = useState(false);
   const [manualPos, setManualPos] = useState({ lat: 10.7769, lng: 106.7009 });
@@ -15,44 +16,45 @@ export function useMapSimulation(
   const [minDistance, setMinDistance] = useState<number>(Infinity);
   
   const isProcessingAudio = useRef(false);
-  const TRIGGER_RADIUS_KM = 0.03;
 
-  const handleProximityAudio = useCallback(async (currentLat: number, currentLng: number) => {
+  const handleProximityAudio = useCallback((currentLat: number, currentLng: number) => {
     if (isProcessingAudio.current || pois.length === 0) return;
 
-    let closestPoi: POIWithTranslation = pois[0];
+    let closestPoi: POIWithTranslation | null = null;
     let closestDist = Infinity;
 
-    pois.forEach(poi => {
+    for (const poi of pois) {
       const dist = getDistance(currentLat, currentLng, poi.latitude, poi.longitude);
-      if (dist < TRIGGER_RADIUS_KM && dist < closestDist) {
+      const triggerRadiusMeters = (poi as any).trigger_radius_meters || 30;
+      if (dist < triggerRadiusMeters / 1000 && dist < closestDist) {
         closestDist = dist;
         closestPoi = poi;
       }
-    });
+    }
 
     if (closestPoi) {
+      const selectedPoi = closestPoi;
+      setTargetPoi(selectedPoi);
+      setMinDistance(closestDist);
+
       // Sửa lỗi logic so sánh: chỉ phát nếu địa điểm hiện tại khác target cũ HOẶC chưa có gì đang phát
-      if ((!targetPoi || closestPoi.id !== targetPoi.id) && activeAudioKey !== closestPoi.id) {
-        const url: string | null = closestPoi.audio_url ? getFullAudioUrl(closestPoi.audio_url) : null;
+      if ((!targetPoi || selectedPoi.id !== targetPoi.id) && activeAudioKey !== selectedPoi.id) {
+        const url: string | null = selectedPoi.audio_url ? getFullAudioUrl(selectedPoi.audio_url) : null;
         if (url) {
-          try {
-            isProcessingAudio.current = true;
-            await toggleAudio(closestPoi.id, url);
-            setTargetPoi(closestPoi);
-            setMinDistance(closestDist);
-          } finally {
-            setTimeout(() => { isProcessingAudio.current = false; }, 800);
-          }
+          isProcessingAudio.current = true;
+          toggleAudio(selectedPoi.id, url);
+          setTimeout(() => { isProcessingAudio.current = false; }, 800);
         }
-      } else {
-        setMinDistance(closestDist);
       }
     } else if (targetPoi) {
+      // Khi đã đi ra khỏi bán kính POI mục tiêu, dừng audio tự động.
+      if (activeAudioKey === targetPoi.id) {
+        stopAudio();
+      }
       setTargetPoi(null);
       setMinDistance(Infinity);
     }
-  }, [pois, targetPoi, activeAudioKey, toggleAudio]);
+  }, [pois, targetPoi, activeAudioKey, toggleAudio, stopAudio]);
 
   useEffect(() => {
     if (!useManual) return;

@@ -6,6 +6,7 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
 import L, { LatLngExpression } from "leaflet";
 import toast from "react-hot-toast";
+import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 
 // Fix icon lỗi trong Next
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -25,6 +26,8 @@ type POI = {
   name: string;
   type: string;
 };
+
+const API_URL = getApiBaseUrl();
 
 export default function FoodMap() {
   const [userPosition, setUserPosition] = useState<LatLngExpression | null>(null);
@@ -94,7 +97,7 @@ export default function FoodMap() {
       const radius = 1000;
 
       const res = await fetch(
-        `http://localhost:5000/api/food-street?lat=${centerLat}&lon=${centerLon}&radius=${radius}`
+        `${API_URL}/api/food-street?lat=${centerLat}&lon=${centerLon}&radius=${radius}`
       );
 
       const data = await res.json();

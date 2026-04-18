@@ -22,10 +22,10 @@ export default function MapPopup({ poi, activeAudioKey, toggleAudio }: MapPopupP
   };
 
   return (
-    <div className="flex flex-col bg-white overflow-hidden rounded-[2rem] w-80 shadow-2xl border border-slate-100">
+    <div className="flex flex-col bg-white overflow-hidden rounded-[1.25rem] w-full shadow-2xl border border-slate-100">
       
       {/* --- PHẦN HÌNH ẢNH (HEADER) --- */}
-      <div className="relative h-44 overflow-hidden bg-slate-200">
+      <div className="relative h-40 md:h-44 overflow-hidden bg-slate-200">
         <img
           // Ưu tiên ảnh từ server, fallback về placeholder local nếu null/lỗi
           src={getFileUrl(poi.thumbnail_url)} 
@@ -50,13 +50,13 @@ export default function MapPopup({ poi, activeAudioKey, toggleAudio }: MapPopupP
       </div>
 
       {/* --- PHẦN NỘI DUNG (BODY) --- */}
-      <div className="p-6 bg-white relative">
-        <h3 className="text-xl font-black text-slate-900 uppercase mb-2 leading-none tracking-tighter">
+      <div className="p-4 bg-white relative">
+        <h3 className="text-xl font-black text-slate-900 uppercase mb-2 leading-tight tracking-tighter">
           {poi.name}
         </h3>
         
         {/* Description Box */}
-        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-6 max-h-32 overflow-y-auto text-[13px] text-slate-600 leading-relaxed scrollbar-hide italic shadow-inner">
+        <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 mb-4 max-h-32 overflow-y-auto text-[13px] text-slate-600 leading-relaxed scrollbar-hide italic shadow-inner">
           {poi.description ? `"${poi.description}"` : "Chưa có thông tin mô tả chi tiết cho địa điểm này."}
         </div>
 
@@ -65,7 +65,7 @@ export default function MapPopup({ poi, activeAudioKey, toggleAudio }: MapPopupP
           {/* Nút Nghe Thuyết Minh */}
           <button
             onClick={handleAudioClick}
-            className={`flex-1 py-4 rounded-[1.25rem] text-[10px] font-black uppercase flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95
+            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-3 transition-all shadow-xl active:scale-95
               ${
                 activeAudioKey === poi.id
                   ? "bg-red-500 text-white ring-4 ring-red-500/10 shadow-red-200"
@@ -92,8 +92,8 @@ export default function MapPopup({ poi, activeAudioKey, toggleAudio }: MapPopupP
           </button>
           
           {/* Nút Chi tiết (Icon Only) */}
-          <button className="w-14 h-14 bg-white border-2 border-slate-100 rounded-[1.25rem] flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-100 hover:bg-blue-50 transition-all group shadow-sm">
-            <Info size={20} strokeWidth={2.5} className="group-hover:scale-110 transition-transform" />
+          <button className="w-12 h-12 bg-white border-2 border-slate-100 rounded-xl flex items-center justify-center text-slate-400 hover:text-blue-500 hover:border-blue-100 hover:bg-blue-50 transition-all group shadow-sm">
+            <Info size={18} strokeWidth={2.5} className="group-hover:scale-110 transition-transform" />
           </button>
         </div>
       </div>

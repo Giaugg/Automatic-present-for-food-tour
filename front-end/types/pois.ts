@@ -9,9 +9,11 @@ export interface POITranslation {
 export interface POI {
   id: string;
   owner_id?: string;
+  owner_plan?: "free" | "premium";
+  is_premium_owner?: boolean;
   latitude: number;
   longitude: number;
-  trigger_radius: number;
+  trigger_radius_meters?: number;
   thumbnail_url?: string;
   audio_url?: string | null;
   category?: string;
@@ -43,7 +45,7 @@ export interface POIImage {
 export interface CreatePOIDTO {
   latitude: number;
   longitude: number;
-  trigger_radius?: number;
+  trigger_radius_meters?: number;
   category?: string;
   thumbnail_url?: string;
   owner_id?: string;

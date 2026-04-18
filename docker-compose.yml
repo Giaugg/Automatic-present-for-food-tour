@@ -40,13 +40,17 @@ services:
     ports:
       - "3000:3000"
     environment:
+      NEXT_PUBLIC_API_SOURCE: local
       NEXT_PUBLIC_API_URL: http://localhost:5000
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "1000"
     # --- PHẦN SỬA ĐỔI ĐỂ TỰ CẬP NHẬT CODE ---
     volumes:
       - ./front-end:/app
       - /app/node_modules
       - /app/.next
-    command: npm run dev # Next.js sẽ tự động Hot Reload giao diện
+    command: sh -c "npm ci && npm run dev" # Đồng bộ đúng lockfile trước khi chạy Next dev
     # ---------------------------------------
     depends_on:
       - backend

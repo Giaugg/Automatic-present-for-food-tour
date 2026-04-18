@@ -88,10 +88,10 @@
   - [docs] PRD
   - [docs] Sequence
   - [feature] Tien te
-  - [feature] Limit Request
+  - [x] Limit Request
   - [feature] Full chuc nang thanh toan: VNPay, MONO,...
   - [feature] Thanh toan nhanh chong bang tien trong tai khoan
   - [feature] Goi cho chu quan
   - [feature] Images - di kem voi thumbail
   - [feature] Delete 1 audio cua POI
-  - [feature] Nhan dien thiet bi ket noi
+  - [x] Nhan dien thiet bi ket noi

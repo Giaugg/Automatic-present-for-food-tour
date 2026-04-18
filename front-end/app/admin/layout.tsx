@@ -37,6 +37,12 @@ export default function AdminLayout({
           >
             Quản lý Ngôn ngữ
           </Link>
+          <Link
+            href="/admin/tours"
+            className="block p-2 rounded-(--radius) text-sidebar-foreground hover:bg-sidebar-accent"
+          >
+            Quản lý Tour
+          </Link>
         </nav>
       </aside>
 

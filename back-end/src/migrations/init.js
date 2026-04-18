@@ -38,6 +38,7 @@ const migration = {
           full_name VARCHAR(100),
           avatar_url TEXT,
           role user_role DEFAULT 'visitor',
+          owner_plan VARCHAR(20) DEFAULT 'free',
           balance DECIMAL(15, 2) DEFAULT 0.00,
           points INT DEFAULT 0,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -48,6 +49,7 @@ const migration = {
           owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
           latitude DOUBLE PRECISION NOT NULL,
           longitude DOUBLE PRECISION NOT NULL,
+          trigger_radius_meters INT DEFAULT 30,
           category VARCHAR(50),
           thumbnail_url TEXT,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -62,6 +64,173 @@ const migration = {
           audio_url TEXT DEFAULT NULL,
           UNIQUE(poi_id, language_id)
         );
+
+        CREATE TABLE IF NOT EXISTS tours (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          price DECIMAL(15, 2) DEFAULT 0.00,
+          thumbnail_url TEXT,
+          is_active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS tour_translations (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          tour_id UUID REFERENCES tours(id) ON DELETE CASCADE,
+          language_code VARCHAR(10) NOT NULL,
+          title VARCHAR(255) NOT NULL,
+          summary TEXT,
+          UNIQUE(tour_id, language_code)
+        );
+
+        CREATE TABLE IF NOT EXISTS tour_items (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          tour_id UUID REFERENCES tours(id) ON DELETE CASCADE,
+          poi_id UUID REFERENCES pois(id) ON DELETE CASCADE,
+          step_order INT NOT NULL,
+          UNIQUE(tour_id, step_order),
+          UNIQUE(tour_id, poi_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS tour_purchases (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+          tour_id UUID REFERENCES tours(id) ON DELETE CASCADE,
+          purchase_price DECIMAL(15, 2) NOT NULL,
+          status VARCHAR(20) NOT NULL DEFAULT 'paid',
+          progress_step INT DEFAULT 0,
+          completed_at TIMESTAMP WITH TIME ZONE,
+          purchased_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, tour_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS wallet_transactions (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+          txn_type VARCHAR(30) NOT NULL,
+          amount DECIMAL(15, 2) NOT NULL,
+          balance_before DECIMAL(15, 2) NOT NULL,
+          balance_after DECIMAL(15, 2) NOT NULL,
+          ref_type VARCHAR(30),
+          ref_id UUID,
+          note TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS payment_orders (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          provider VARCHAR(30) NOT NULL,
+          app_trans_id VARCHAR(64) UNIQUE NOT NULL,
+          user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+          amount DECIMAL(15, 2) NOT NULL,
+          status VARCHAR(20) NOT NULL DEFAULT 'pending',
+          gateway_response JSONB,
+          paid_at TIMESTAMP WITH TIME ZONE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS owner_plan_subscriptions (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+          plan_key VARCHAR(20) NOT NULL,
+          amount DECIMAL(15, 2) NOT NULL DEFAULT 0,
+          status VARCHAR(20) NOT NULL DEFAULT 'active',
+          payment_method VARCHAR(30) NOT NULL DEFAULT 'wallet',
+          starts_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          ends_at TIMESTAMP WITH TIME ZONE,
+          metadata JSONB,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS owner_plans (
+          key VARCHAR(20) PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          short_description TEXT,
+          price_vnd DECIMAL(15, 2) NOT NULL DEFAULT 0,
+          duration_days INT,
+          max_thumbnail_uploads INT NOT NULL DEFAULT 3,
+          max_audio_radius_meters INT NOT NULL DEFAULT 30,
+          features JSONB NOT NULL DEFAULT '[]'::jsonb,
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          deleted_at TIMESTAMP WITH TIME ZONE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS device_access_logs (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          ip_address VARCHAR(100),
+          user_agent TEXT,
+          device_type VARCHAR(20),
+          browser VARCHAR(50),
+          operating_system VARCHAR(50),
+          accept_language VARCHAR(120),
+          platform_hint VARCHAR(80),
+          timezone VARCHAR(80),
+          language VARCHAR(20),
+          platform VARCHAR(80),
+          screen_resolution VARCHAR(40),
+          touch_points INT,
+          user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+
+      // 2.1. Đồng bộ schema cho database cũ đã tạo trước đó
+      await client.query(`
+        ALTER TABLE users
+          ADD COLUMN IF NOT EXISTS owner_plan VARCHAR(20) DEFAULT 'free';
+
+        ALTER TABLE users
+          DROP CONSTRAINT IF EXISTS users_owner_plan_check;
+
+        ALTER TABLE pois
+          ADD COLUMN IF NOT EXISTS trigger_radius_meters INT DEFAULT 30;
+
+        ALTER TABLE tour_purchases
+          ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'paid',
+          ADD COLUMN IF NOT EXISTS progress_step INT DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE,
+          ADD COLUMN IF NOT EXISTS purchased_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+
+        ALTER TABLE payment_orders
+          ADD COLUMN IF NOT EXISTS provider VARCHAR(30) DEFAULT 'zalopay',
+          ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending',
+          ADD COLUMN IF NOT EXISTS gateway_response JSONB,
+          ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP WITH TIME ZONE,
+          ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_tour_purchases_user_purchased_at
+          ON tour_purchases (user_id, purchased_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_tour_purchases_tour_purchased_at
+          ON tour_purchases (tour_id, purchased_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_payment_orders_user_created_at
+          ON payment_orders (user_id, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_payment_orders_status
+          ON payment_orders (status);
+
+        CREATE INDEX IF NOT EXISTS idx_owner_plan_subscriptions_user_created
+          ON owner_plan_subscriptions (user_id, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_owner_plan_subscriptions_user_active
+          ON owner_plan_subscriptions (user_id, status, ends_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_owner_plans_active
+          ON owner_plans (is_active, deleted_at);
+
+        CREATE INDEX IF NOT EXISTS idx_device_access_logs_created_at
+          ON device_access_logs (created_at DESC);
       `);
 
       // 3. Chèn dữ liệu mẫu (Seeding)
@@ -133,17 +302,69 @@ const migration = {
       // --- 3.2 Users (3 users) ---
       // 4. Seed Users (Bổ sung username và points)
       const userData = [
-        ['115e99e8-93b8-493e-94aa-5d3c81911820', 'admin', 'admin@foodtour.com', passwordhash, 'System Admin', 'admin', 1000],
-        ['225e99e8-93b8-493e-94aa-5d3c81911821', 'owner', 'owner@saigonmap.com', passwordhash, 'Saigon Guide Owner', 'owner', 500],
-        ['335e99e8-93b8-493e-94aa-5d3c81911822', 'visitor', 'visitor@gmail.com', passwordhash, 'Nguyen Van A', 'visitor', 0]
+        ['115e99e8-93b8-493e-94aa-5d3c81911820', 'admin', 'admin@foodtour.com', passwordhash, 'System Admin', 'admin', 'premium', 1000],
+        ['225e99e8-93b8-493e-94aa-5d3c81911821', 'owner', 'owner@saigonmap.com', passwordhash, 'Saigon Guide Owner', 'owner', 'free', 500],
+        ['335e99e8-93b8-493e-94aa-5d3c81911822', 'visitor', 'visitor@gmail.com', passwordhash, 'Nguyen Van A', 'visitor', 'free', 0]
       ];
 
       for (const u of userData) {
         await client.query(
-          `INSERT INTO users (id, username, email, password_hash, full_name, role, points) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7) 
-           ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+          `INSERT INTO users (id, username, email, password_hash, full_name, role, owner_plan, points) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+           ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, owner_plan = EXCLUDED.owner_plan`,
           u
+        );
+      }
+
+      const ownerPlans = [
+        {
+          key: 'free',
+          title: 'Goi mien phi',
+          shortDescription: 'Goi co ban danh cho chu quan moi bat dau',
+          priceVnd: 0,
+          durationDays: null,
+          maxThumbnailUploads: 3,
+          maxAudioRadiusMeters: 30,
+          features: ['Toi da 3 anh thumbnail', 'Ban kinh audio toi da 30m', 'Ho tro tao QR co ban'],
+          isActive: true
+        },
+        {
+          key: 'premium',
+          title: 'Goi tra phi',
+          shortDescription: 'Mo rong han muc va uu tien hien thi tren ban do',
+          priceVnd: 199000,
+          durationDays: 30,
+          maxThumbnailUploads: 30,
+          maxAudioRadiusMeters: 120,
+          features: [
+            'Toi da 30 anh thumbnail',
+            'Ban kinh audio toi da 120m',
+            'Uu tien hien thi trong danh sach gan day',
+            'Quan ly QR nang cao'
+          ],
+          isActive: true
+        }
+      ];
+
+      for (const plan of ownerPlans) {
+        await client.query(
+          `INSERT INTO owner_plans (
+             key, title, short_description, price_vnd, duration_days,
+             max_thumbnail_uploads, max_audio_radius_meters, features, is_active
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
+           ON CONFLICT (key) DO NOTHING`,
+          [
+            plan.key,
+            plan.title,
+            plan.shortDescription,
+            plan.priceVnd,
+            plan.durationDays,
+            plan.maxThumbnailUploads,
+            plan.maxAudioRadiusMeters,
+            JSON.stringify(plan.features),
+            plan.isActive
+          ]
         );
       }
 
@@ -192,6 +413,51 @@ const migration = {
         }
       }
 
+      // --- 3.4 Tours (1 tour mau + lo trinh 3 diem) ---
+      const sampleTourId = 'de7e0dfd-e1ac-404b-81a2-69eb9fff124d';
+
+      await client.query(
+        `INSERT INTO tours (id, price, thumbnail_url, is_active)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (id) DO UPDATE SET
+           price = EXCLUDED.price,
+           thumbnail_url = EXCLUDED.thumbnail_url,
+           is_active = EXCLUDED.is_active`,
+        [sampleTourId, 99000, '/uploads/thumbnails/tour-q1.jpg', true]
+      );
+
+      const tourTranslations = [
+        ['vi-VN', 'Food Tour Quan 1', 'Hanh trinh kham pha 3 diem noi bat tai trung tam Quan 1.'],
+        ['en-US', 'District 1 Food Tour', 'A curated route across three iconic spots in District 1.'],
+        ['ja-JP', '1区フードツアー', 'ホーチミン1区の人気スポット3か所を巡るツアーです。']
+      ];
+
+      for (const [languageCode, title, summary] of tourTranslations) {
+        await client.query(
+          `INSERT INTO tour_translations (tour_id, language_code, title, summary)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (tour_id, language_code)
+           DO UPDATE SET title = EXCLUDED.title, summary = EXCLUDED.summary`,
+          [sampleTourId, languageCode, title, summary]
+        );
+      }
+
+      const tourItems = [
+        ['ae7e0dfd-e1ac-404b-81a2-69eb9fff124a', 1],
+        ['be7e0dfd-e1ac-404b-81a2-69eb9fff124b', 2],
+        ['ce7e0dfd-e1ac-404b-81a2-69eb9fff124c', 3]
+      ];
+
+      for (const [poiId, stepOrder] of tourItems) {
+        await client.query(
+          `INSERT INTO tour_items (tour_id, poi_id, step_order)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (tour_id, step_order)
+           DO UPDATE SET poi_id = EXCLUDED.poi_id`,
+          [sampleTourId, poiId, stepOrder]
+        );
+      }
+
       await client.query('COMMIT');
       console.log('✅ UP thành công! Database đã sẵn sàng với 3 địa điểm tại Quận 1.');
     } catch (err) {
@@ -210,6 +476,13 @@ const migration = {
       await client.query('BEGIN');
       console.log("🗑️ [MIGRATION] Đang dọn dẹp Database...");
       await client.query(`
+        DROP TABLE IF EXISTS payment_orders CASCADE;
+        DROP TABLE IF EXISTS wallet_transactions CASCADE;
+        DROP TABLE IF EXISTS tour_purchases CASCADE;
+        DROP TABLE IF EXISTS tour_items CASCADE;
+        DROP TABLE IF EXISTS tour_translations CASCADE;
+        DROP TABLE IF EXISTS tours CASCADE;
+        DROP TABLE IF EXISTS owner_plans CASCADE;
         DROP TABLE IF EXISTS poi_translations CASCADE;
         DROP TABLE IF EXISTS pois CASCADE;
         DROP TABLE IF EXISTS languages CASCADE;

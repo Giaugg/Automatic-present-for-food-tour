@@ -27,6 +27,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
 
   const router = useRouter();
   const pathname = usePathname();
+  const isMapPage = pathname === "/map";
 
   // 1. Fetch danh sách ngôn ngữ đang hoạt động từ DB
   const fetchActiveLanguages = useCallback(async () => {
@@ -91,6 +92,28 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     return () => window.removeEventListener("auth-change", syncUser);
   }, [syncUser]);
 
+  useEffect(() => {
+    const handleUserLocalUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<{ balance?: number; points?: number }>;
+      const nextBalance = Number(customEvent.detail?.balance);
+      const nextPoints = Number(customEvent.detail?.points);
+
+      setUser((prev) => {
+        if (!prev) return prev;
+        const updated = {
+          ...prev,
+          balance: Number.isFinite(nextBalance) ? nextBalance : prev.balance,
+          points: Number.isFinite(nextPoints) ? nextPoints : prev.points,
+        };
+        localStorage.setItem("user", JSON.stringify(updated));
+        return updated;
+      });
+    };
+
+    window.addEventListener("user-local-update", handleUserLocalUpdate as EventListener);
+    return () => window.removeEventListener("user-local-update", handleUserLocalUpdate as EventListener);
+  }, []);
+
   // Helper hiển thị Flag dựa trên mã code (vi-VN, en-US, ja-JP)
   const getFlag = (code: string) => {
     const c = code.toLowerCase();
@@ -103,8 +126,8 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="bg-card border-b border-border sticky top-0 z-[1001] shadow-sm">
+    <div className={isMapPage ? "h-[100dvh] overflow-hidden bg-background text-foreground" : "min-h-screen bg-background text-foreground"}>
+      <header className="bg-card border-b border-border sticky top-0 z-[3000] shadow-sm">
         <nav className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <Link href="/" className="text-2xl font-black text-primary tracking-tighter">
@@ -147,7 +170,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               </button>
               
               {!isLoadingLangs && activeLanguages.length > 0 && (
-                <div className="absolute right-0 top-full pt-2 w-60 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[1002]">
+                <div className="absolute right-0 top-full pt-2 w-60 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[3010]">
                   <div className="bg-card border border-border rounded-xl shadow-xl overflow-hidden p-1">
                     {activeLanguages.map((lang) => (
                       <button
@@ -186,7 +209,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                     </div>
                   </button>
 
-                  <div className="absolute right-0 top-full pt-2 w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[1002]">
+                  <div className="absolute right-0 top-full pt-2 w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[3010]">
                     <div className="bg-card border border-border rounded-2xl shadow-xl overflow-hidden">
                       <div className="px-4 py-3 bg-muted/20 border-b border-border text-foreground">
                         <p className="text-sm font-bold truncate">{user.full_name}</p>
@@ -214,7 +237,9 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         </nav>
       </header>
 
-      <main className="min-h-[calc(100vh-64px)]">{children}</main>
+      <main className={isMapPage ? "h-[calc(100dvh-4rem)] overflow-hidden" : "min-h-[calc(100vh-64px)]"}>
+        {children}
+      </main>
 
       {/* --- MODAL CHỌN NGÔN NGỮ KHỞI TẠO (DYNAMIC) --- */}
       {showLangModal && activeLanguages.length > 0 && (

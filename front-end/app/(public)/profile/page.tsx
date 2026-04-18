@@ -112,10 +112,10 @@ export default function ProfilePage() {
                 <span>Đổi mật khẩu</span>
                 <span>→</span>
               </button>
-              <button className="w-full flex justify-between items-center p-4 rounded-2xl bg-muted/20 hover:bg-muted/40 transition-all font-bold">
+              <Link href="/profile/purchases" className="w-full flex justify-between items-center p-4 rounded-2xl bg-muted/20 hover:bg-muted/40 transition-all font-bold">
                 <span>Lịch sử mua Tour</span>
                 <span>→</span>
-              </button>
+              </Link>
               <button className="w-full flex justify-between items-center p-4 rounded-2xl bg-muted/20 hover:bg-muted/40 transition-all font-bold text-destructive">
                 <span>Xóa tài khoản</span>
               </button>

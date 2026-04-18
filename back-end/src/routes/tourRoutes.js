@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const tourController = require('../controllers/tourController');
+const upload = require('../middlewares/uploadMiddleware');
 
 // Import middleware hợp nhất
 const { authMiddleware, authorize } = require('../middlewares/authMiddleware');
@@ -10,8 +11,26 @@ const { authMiddleware, authorize } = require('../middlewares/authMiddleware');
 // Lấy danh sách tất cả các tour (Có hỗ trợ query ?lang=vi hoặc ?lang=en)
 router.get('/', tourController.getAllTours);
 
+// Lấy lịch sử mua tour của user hiện tại
+router.get('/my/purchases',
+    authMiddleware,
+    tourController.getMyPurchases
+);
+
+// Cập nhật tiến độ tour đã mua
+router.patch('/my/purchases/:purchaseId/progress',
+    authMiddleware,
+    tourController.updateMyPurchaseProgress
+);
+
 // Lấy chi tiết 1 tour cụ thể kèm lộ trình POIs (Ví dụ: /api/tours/uuid-cua-tour?lang=vi)
 router.get('/:id', tourController.getTourDetails);
+
+// Mua tour bằng ví người dùng
+router.post('/:id/purchase',
+    authMiddleware,
+    tourController.purchaseTour
+);
 
 // --- 2. PROTECTED ROUTES (Chỉ Admin mới có quyền thay đổi dữ liệu Tour) ---
 
@@ -42,6 +61,14 @@ router.delete('/:id',
     authMiddleware, 
     authorize('admin'), 
     tourController.deleteTour
+);
+
+// Upload thumbnail cho tour
+router.post('/upload-thumbnail',
+    authMiddleware,
+    authorize('admin'),
+    upload.single('thumbnail'),
+    tourController.uploadTourThumbnail
 );
 
 module.exports = router;

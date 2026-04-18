@@ -19,10 +19,10 @@ export default function SimulatorPanel({
   setMoveSpeed 
 }: SimulatorPanelProps) {
   return (
-    <div className="absolute top-6 right-6 z-[999] w-72 bg-white/95 backdrop-blur-xl p-5 rounded-[2.5rem] shadow-2xl border border-white/50 transition-all duration-500">
+    <div className="w-[min(18rem,calc(100vw-2rem))] bg-white/95 backdrop-blur-xl p-4 md:p-5 rounded-[2rem] shadow-lg border border-white/50 transition-all duration-500">
       
       {/* Header: Toggle Switch */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3 md:mb-4">
         <div className="flex items-center gap-2 font-black text-[10px] uppercase tracking-widest text-slate-400">
           <Navigation size={14} className={useManual ? "text-blue-600 animate-pulse" : "text-slate-300"}/> 
           Simulation Mode

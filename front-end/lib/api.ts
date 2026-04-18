@@ -3,9 +3,28 @@ import { Language } from '../types/language';
 import { AuthResponse, LoginCredentials, RegisterCredentials } from '../types/auth';
 import { User, UpdateProfileDTO } from '../types/user';
 import { POIWithTranslation } from '../types/pois';
-import { Tour, CreateTourDTO, UpdateTourScheduleDTO } from '../types/tour';
-import { clear } from 'console';
-import { clearPreviewData } from 'next/dist/server/api-utils';
+import { Tour, CreateTourDTO, UpdateTourScheduleDTO, TourPurchase } from '../types/tour';
+import { getApiBaseUrl } from './apiBaseUrl';
+
+export type DeviceIdentifyPayload = {
+  timezone: string | null;
+  language: string | null;
+  platform: string | null;
+  screenResolution: string;
+  touchPoints: number;
+};
+
+export type OwnerPlanCatalogItem = {
+  key: string;
+  title: string;
+  shortDescription: string;
+  priceVnd: number;
+  durationDays: number | null;
+  maxThumbnailUploads: number;
+  maxAudioRadiusMeters: number;
+  features: string[];
+  isActive?: boolean;
+};
 
 
 let dynamicApiUrl: string | null = null;
@@ -64,6 +83,107 @@ export const authApi = {
   login: (data: LoginCredentials) => api.post<AuthResponse>('/auth/login', data),
   getMe: () => api.get<User>('/auth/me'),
   updateProfile: (data: UpdateProfileDTO) => api.put<User>('/auth/profile', data),
+  topUp: (amount: number) => api.post<{
+    message: string;
+    balance: number;
+    transaction: {
+      id: string;
+      txn_type: string;
+      amount: number | string;
+      balance_before: number | string;
+      balance_after: number | string;
+      created_at: string;
+    };
+  }>('/auth/topup', { amount }),
+  getWalletTransactions: (limit: number = 20) =>
+    api.get<Array<{
+      id: string;
+      txn_type: string;
+      amount: number | string;
+      balance_before: number | string;
+      balance_after: number | string;
+      note?: string;
+      created_at: string;
+      ref_type?: string;
+      ref_id?: string;
+    }>>('/auth/wallet-transactions', { params: { limit } }),
+};
+
+export const paymentApi = {
+  createZaloPayTopupOrder: (amount: number) =>
+    api.post<{
+      message: string;
+      app_trans_id: string;
+      order_url?: string;
+      zp_trans_token?: string;
+      qr_code?: string;
+    }>('/payments/zalopay/topup-order', { amount }),
+  queryZaloPayStatus: (appTransId: string) =>
+    api.get<{
+      message: string;
+      app_trans_id: string;
+      local_status: string;
+      provider_response?: any;
+    }>(`/payments/zalopay/status/${encodeURIComponent(appTransId)}`),
+  getOwnerPlans: () =>
+    api.get<{
+      message: string;
+      data: OwnerPlanCatalogItem[];
+    }>('/payments/owner-plans'),
+  getMyOwnerPlan: () =>
+    api.get<{
+      message: string;
+      data: {
+        currentPlan: string;
+        balance: number;
+        activeSubscription: {
+          id: string;
+          plan_key: string;
+          status: string;
+          starts_at: string;
+          ends_at: string | null;
+        } | null;
+        history: Array<{
+          id: string;
+          plan_key: string;
+          amount: number | string;
+          status: string;
+          payment_method: string;
+          starts_at: string;
+          ends_at: string | null;
+          created_at: string;
+        }>;
+      };
+    }>('/payments/owner-plans/me'),
+  subscribeOwnerPlan: (planKey: string) =>
+    api.post<{
+      message: string;
+      data: {
+        currentPlan: string;
+        wallet: {
+          previous_balance: number;
+          current_balance: number;
+          deducted: number;
+        };
+      };
+    }>('/payments/owner-plans/subscribe', { planKey }),
+  getAdminOwnerPlans: () =>
+    api.get<{
+      message: string;
+      data: OwnerPlanCatalogItem[];
+    }>('/payments/admin/owner-plans'),
+  createAdminOwnerPlan: (data: OwnerPlanCatalogItem) =>
+    api.post<{
+      message: string;
+      data: OwnerPlanCatalogItem;
+    }>('/payments/admin/owner-plans', data),
+  updateAdminOwnerPlan: (key: string, data: Partial<OwnerPlanCatalogItem>) =>
+    api.put<{
+      message: string;
+      data: OwnerPlanCatalogItem;
+    }>(`/payments/admin/owner-plans/${encodeURIComponent(key)}`, data),
+  deleteAdminOwnerPlan: (key: string) =>
+    api.delete<{ message: string }>(`/payments/admin/owner-plans/${encodeURIComponent(key)}`),
 };
 
 export const languageApi = {
@@ -79,7 +199,15 @@ export const languageApi = {
 
 export const poiApi = {
   getAll: (lang: string = 'vi-VN') => api.get<POIWithTranslation[]>(`/pois`, { params: { lang } }),
-  getMyPOIs: () => api.get<POIWithTranslation[]>('/pois/my-pois'),
+  getMyPOIs: () =>
+    api.get<
+      | {
+          success: boolean;
+          count: number;
+          data: POIWithTranslation[];
+        }
+      | POIWithTranslation[]
+    >('/pois/my-pois'),
   getById: (id: string, lang: string) => api.get<POIWithTranslation>(`/pois/${id}`, { params: { lang } }),
   getDetails: (id: string) => api.get<{ success: boolean; data: { translations: any[] } }>(`/pois/${id}/details`),
   create: (formData: FormData) =>
@@ -91,16 +219,43 @@ export const poiApi = {
       headers: { 'Content-Type': 'multipart/form-data' }
     }),
   delete: (id: string) => api.delete<{ success: boolean; message: string }>(`/pois/${id}`),
+  deleteAudio: (poiId: string, translationId: string) =>
+    api.delete<{ success: boolean; message: string }>(`/pois/${poiId}/audio/${translationId}`),
   syncMissingAudio: (id: string) => api.post(`/pois/${id}/sync-audio`),
   rebuildAudio: (id: string) => api.post(`/pois/${id}/rebuild-audio`),
 };
 
 export const tourApi = {
-  getAll: (lang: string = 'vi-VN') => api.get<Tour[]>('/tours', { params: { lang } }),
+  getAll: (lang: string = 'vi-VN', includeInactive: boolean = false) =>
+    api.get<Tour[]>('/tours', { params: { lang, include_inactive: includeInactive } }),
   getDetails: (id: string, lang: string = 'vi-VN') => api.get<Tour>(`/tours/${id}`, { params: { lang } }),
+  getMyPurchases: (lang: string = 'vi-VN') => api.get<TourPurchase[]>('/tours/my/purchases', { params: { lang } }),
+  purchase: (id: string) => api.post<{
+    message: string;
+    purchase: { id: string; purchased_at: string; status: string };
+    wallet: { previous_balance: number; current_balance: number };
+    reward_points: number;
+  }>(`/tours/${id}/purchase`),
+  updateMyPurchaseProgress: (purchaseId: string, progressStep: number) =>
+    api.patch<{
+      message: string;
+      purchase: {
+        id: string;
+        tour_id: string;
+        progress_step: number;
+        status: string;
+        completed_at?: string | null;
+        updated_at?: string;
+      };
+      total_steps: number;
+    }>(`/tours/my/purchases/${purchaseId}/progress`, { progress_step: progressStep }),
   create: (data: CreateTourDTO) => api.post<{ id: string; message: string }>('/tours', data),
   update: (id: string, data: Partial<CreateTourDTO>) => api.put<{ message: string }>(`/tours/${id}`, data),
   updateSchedule: (tourId: string, data: UpdateTourScheduleDTO) => api.put<{ message: string }>(`/tours/${tourId}/schedule`, data),
+  uploadThumbnail: (formData: FormData) =>
+    api.post<{ message: string; thumbnail_url: string }>('/tours/upload-thumbnail', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
   delete: (id: string) => api.delete<{ message: string }>(`/tours/${id}`),
 };
 
@@ -121,6 +276,12 @@ export const dashboardApi = {
   getOwnerStats: () => api.get('/dashboard/owner/stats'),
 };
 
+// API trung tâm cho tracking thiết bị (đi qua interceptor để tự gắn token nếu có).
+export const deviceApi = {
+  identify: (payload: DeviceIdentifyPayload) => api.post('/device/identify', payload),
+  getLogs: (limit: number = 30) => api.get('/device/logs', { params: { limit } }),
+};
+
 /**
  * 4. HELPER FUNCTIONS
  */
@@ -128,9 +289,8 @@ export const getFileUrl = (path: string | null) => {
   if (!path) return "/placeholder.png";
   if (path.startsWith('http')) return path;
 
-  // Lấy URL đã cache. Nếu chưa có, dùng biến môi trường hoặc mặc định
-  // Không dùng await ở đây vì hàm này thường dùng trực tiếp trong component (render)
-  const baseUrl = localStorage.getItem('apiBaseUrl') || process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const persistedApiBase = typeof window !== 'undefined' ? localStorage.getItem('apiBaseUrl') : null;
+  const baseUrl = persistedApiBase || dynamicApiUrl || getApiBaseUrl();
   
   // Chuẩn hóa đường dẫn: đảm bảo không bị double slash //
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
@@ -159,7 +319,8 @@ export const getFullAudioUrl = (url: string | null | undefined) => {
 
   // 3. Thêm tham số chống cache (v=timestamp) 
   // Rất quan trọng khi bạn dùng tính năng Rebuild Audio ở trang Admin
-
+  const baseUrl = dynamicApiUrl || getApiBaseUrl();
+  return `${baseUrl}${path}?v=${Date.now()}`;
 };
 
 export default api;
