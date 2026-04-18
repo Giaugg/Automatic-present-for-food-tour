@@ -28,50 +28,32 @@ export type OwnerPlanCatalogItem = {
 
 
 let dynamicApiUrl: string | null = null;
-const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '');
-const DEFAULT_DISCOVERY_URL = 'https://raw.githubusercontent.com/Giaugg/Automatic-present-for-food-tour/main/urls.json';
-
-const getApiSourceMode = () => {
-  return (process.env.NEXT_PUBLIC_API_SOURCE || 'auto').toLowerCase();
-};
 
 const getBaseUrl = async () => {
   if (dynamicApiUrl) return dynamicApiUrl;
 
-  const sourceMode = getApiSourceMode();
-
-  if (sourceMode === 'local') {
-    dynamicApiUrl = 'http://localhost:5000';
-    return dynamicApiUrl;
-  }
-
-  if (sourceMode === 'remote') {
-    const discoveryUrl = process.env.NEXT_PUBLIC_API_DISCOVERY_URL || DEFAULT_DISCOVERY_URL;
-    const requestUrl = `${discoveryUrl}${discoveryUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
-
-    try {
-      const response = await axios.get(requestUrl);
-      if (response.data && typeof response.data.apiUrl === 'string' && response.data.apiUrl.trim()) {
-        dynamicApiUrl = normalizeBaseUrl(response.data.apiUrl.trim());
-        console.log('✅ API URL updated from discovery endpoint:', dynamicApiUrl);
-        return dynamicApiUrl;
-      }
-      throw new Error('Invalid JSON structure');
-    } catch (error) {
-      console.error('❌ Failed to fetch URL from discovery endpoint:', error);
-      dynamicApiUrl = getApiBaseUrl();
+  // Sử dụng link RAW và thêm timestamp để tránh cache
+  const GITHUB_RAW_URL = `https://raw.githubusercontent.com/Giaugg/Automatic-present-for-food-tour/main/urls.json?t=${new Date().getTime()}`;
+  
+  try {
+    // Sử dụng axios để lấy file JSON
+    const response = await axios.get(GITHUB_RAW_URL);
+    
+    // Kiểm tra cấu trúc dữ liệu trả về
+    if (response.data && response.data.apiUrl) {
+      dynamicApiUrl = response.data.apiUrl;
+      console.log("✅ API URL updated from GitHub:", dynamicApiUrl);
       return dynamicApiUrl;
     }
+    throw new Error("Invalid JSON structure");
+  } catch (error) {
+    console.error("❌ Failed to fetch URL from GitHub:", error);
+    return process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
   }
-
-  // auto/env mode: ưu tiên NEXT_PUBLIC_API_URL, sau đó fallback hợp lý theo môi trường runtime.
-  dynamicApiUrl = getApiBaseUrl();
-  return dynamicApiUrl;
 };
 
 const api: AxiosInstance = axios.create({
-  // Giá trị mặc định cho lần khởi tạo đầu tiên, sau đó interceptor sẽ set lại chính xác.
-  baseURL: `${getApiBaseUrl()}/api`,
+  baseURL: `${getBaseUrl()}/api`,
   headers: {
     'Content-Type': 'application/json',
     'ngrok-skip-browser-warning': 'true',
@@ -312,6 +294,8 @@ export const getFileUrl = (path: string | null) => {
   
   // Chuẩn hóa đường dẫn: đảm bảo không bị double slash //
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+  console.log(baseUrl,cleanPath);
   
   return `${baseUrl}${cleanPath}`;
 };
