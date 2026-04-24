@@ -65,6 +65,10 @@ app.use('/api/languages', require('./routes/languageRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 // API nhận diện thiết bị khi client truy cập.
 app.use('/api/device', require('./routes/deviceRoutes'));
+// API quản lý tài khoản dùng thử
+app.use('/api/trial', require('./routes/trialRoutes'));
+// API theo dõi thiết bị online
+app.use('/api/online-devices', require('./routes/onlineDeviceRoutes'));
 
 // Route Quản trị (Dành cho trang Quản lý hồ sơ/tài khoản)
 // Lưu ý: File này chứa các chức năng adminTopUp, getAllUsers...

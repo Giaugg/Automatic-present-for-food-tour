@@ -9,6 +9,7 @@ const authMiddleware = (req, res, next) => {
 
     if (!token) {
         return res.status(401).json({ message: 'Không có token, truy cập bị từ chối' });
+        console.log('[AUTH_ERROR] No token provided');
     }
 
     try {
