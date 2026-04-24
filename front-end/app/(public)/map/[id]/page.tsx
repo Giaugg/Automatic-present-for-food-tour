@@ -27,6 +27,7 @@ export default function PoiDetailPage() {
       try {
         const res = await poiApi.getById(params.id, lang);
         setPoi(res.data);
+        console.log("Fetched POI details:", res.data);
       } catch (err) {
         console.error("Loi tai chi tiet POI:", err);
       } finally {
@@ -52,6 +53,7 @@ export default function PoiDetailPage() {
     }
 
     const source = getFullAudioUrl(poi.audio_url);
+    console.log("Audio source:", source);
     if (!source) {
       toast.error("Không tìm thấy file audio.");
       return;

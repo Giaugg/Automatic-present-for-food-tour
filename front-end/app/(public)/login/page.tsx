@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
-import { authApi } from "@/lib/api";
+import { authApi, onlineDeviceApi, trialApi } from "@/lib/api";
 import toast from "react-hot-toast";
 
 export default function LoginPage() {
@@ -13,8 +13,7 @@ export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Hợp nhất dữ liệu vào 1 object duy nhất để dễ quản lý
+
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -32,10 +31,39 @@ export default function LoginPage() {
     }
   }, [router]);
 
+  // --- HÀM KHỞI TẠO SESSION & HEARTBEAT ---
+  const initializeUserSession = async () => {
+    try {
+      // 1. Thu thập thông tin thiết bị
+      const deviceData = {
+        device_id: window.navigator.userAgent, // Hoặc dùng fingerprinting library
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        screen_resolution: `${window.screen.width}x${window.screen.height}`,
+        platform: window.navigator.platform
+      };
+
+      // 2. Tạo Session trên Server
+      const sessionRes = await onlineDeviceApi.createSession(deviceData);
+      const sessionId = sessionRes.data.sessionId;
+      localStorage.setItem("current_session_id", sessionId);
+
+      // 3. Thiết lập Heartbeat (mỗi 30 giây)
+      const heartbeatInterval = setInterval(() => {
+        onlineDeviceApi.updateActivity(sessionId).catch(() => {
+          clearInterval(heartbeatInterval);
+        });
+      }, 30000);
+
+      // Lưu interval ID để xóa khi logout nếu cần
+      (window as any).heartbeatInterval = heartbeatInterval;
+    } catch (err) {
+      console.error("Failed to initialize session tracking", err);
+    }
+  };
+
   // 2. Xử lý Google Login
   const handleGoogleLogin = () => {
-    toast.error("Chức năng đăng nhập Google hiện chưa được triển khai. Vui lòng sử dụng phương thức đăng nhập thông thường.");
-    // window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`;
+    toast.error("Chức năng đăng nhập Google hiện chưa được triển khai.");
   };
 
   // 3. Xử lý Submit
@@ -51,15 +79,28 @@ export default function LoginPage() {
           password: formData.password
         });
 
+        // Lưu thông tin cơ bản
         localStorage.setItem("token", res.data.token);
         localStorage.setItem("user", JSON.stringify(res.data.user));
+
+        // 🔥 MỚI: Khởi tạo Session Tracking
+        await initializeUserSession();
+
+        // 🔥 MỚI: Kiểm tra trạng thái Trial Account
+        const trialStatus = await trialApi.checkTrialStatus();
+        if (trialStatus.data.isTrialUser && trialStatus.data.isExpired) {
+          toast.error("Tài khoản dùng thử của bạn đã hết hạn!");
+          // Có thể redirect sang trang nâng cấp/thanh toán ở đây
+          // router.push("/pricing"); 
+          // return;
+        }
+
         window.dispatchEvent(new Event("auth-change"));
+        toast.success("Đăng nhập thành công!");
         router.push("/map");
         
       } else {
         // --- LOGIC ĐĂNG KÝ ---
-        // Backend yêu cầu username, nếu form không có ô nhập username riêng, 
-        // ta lấy phần trước @ của email làm username mặc định.
         const payload = {
           ...formData,
           username: formData.username || formData.email.split('@')[0]
@@ -71,6 +112,10 @@ export default function LoginPage() {
         if (res.data.token && res.data.user) {
           localStorage.setItem("token", res.data.token);
           localStorage.setItem("user", JSON.stringify(res.data.user));
+          
+          // 🔥 MỚI: Khởi tạo Session Tracking cho user mới đăng ký
+          await initializeUserSession();
+          
           window.dispatchEvent(new Event("auth-change"));
           router.push("/map");
         } else {
@@ -78,14 +123,19 @@ export default function LoginPage() {
           toast.error("Vui lòng đăng nhập với tài khoản vừa tạo.");
         }
       }
-    } catch (err) {
-      toast.error( "Thao tác thất bại.");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Thao tác thất bại.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (isLoading) return <div className="flex h-screen items-center justify-center animate-pulse font-bold">LOADING...</div>;
+  if (isLoading) return (
+    <div className="flex h-screen flex-col items-center justify-center space-y-4">
+      <div className="w-12 h-12 border-4 border-black border-t-yellow-400 rounded-full animate-spin"></div>
+      <p className="font-black uppercase italic">Securing Connection...</p>
+    </div>
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4 font-sans text-black">
@@ -96,7 +146,7 @@ export default function LoginPage() {
               {isLogin ? "Login" : "Register"}
             </h1>
             <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest">
-              {isLogin ? "Welcome Back Explorer" : "Join the Food Tour"}
+              {isLogin ? "Session tracking enabled" : "Join the Food Tour"}
             </p>
           </div>
 
@@ -123,7 +173,6 @@ export default function LoginPage() {
                     onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                   />
                 </div>
-                {/* Ô nhập Username (Tùy chọn bổ sung để khớp API) */}
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase ml-1">Username</label>
                   <input
@@ -165,16 +214,16 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-4 bg-black text-white rounded-xl font-black uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(234,179,8,1)] hover:bg-slate-800 disabled:opacity-50 transition-all"
+              className="w-full py-4 bg-black text-white rounded-xl font-black uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(234,179,8,1)] hover:bg-slate-800 disabled:opacity-50 transition-all active:translate-y-1 active:shadow-none"
             >
-              {isSubmitting ? "Processing..." : isLogin ? "Enter Map" : "Create Account"}
+              {isSubmitting ? "Syncing..." : isLogin ? "Enter Map" : "Create Account"}
             </button>
           </form>
 
           <div className="text-center">
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="text-xs font-black uppercase underline decoration-2 underline-offset-4 hover:text-primary"
+              className="text-xs font-black uppercase underline decoration-2 underline-offset-4 hover:text-yellow-600"
             >
               {isLogin ? "Need an account? Sign up" : "Have account? Log in"}
             </button>

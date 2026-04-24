@@ -1,13 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { dashboardApi, deviceApi } from "@/lib/api";
+import { dashboardApi } from "@/lib/api";
+import Link from "next/link";
 import { 
   Users, 
   MapPin, 
   Languages, 
   TrendingUp, 
-  Clock 
+  Clock,
+  Smartphone,
+  ArrowRight
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -15,7 +18,6 @@ export default function AdminPage() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const [deviceLogs, setDeviceLogs] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -27,13 +29,8 @@ export default function AdminPage() {
           return;
         }
 
-        const [statsRes, logsRes] = await Promise.all([
-          dashboardApi.getAdminStats(),
-          deviceApi.getLogs(20),
-        ]);
-
+        const statsRes = await dashboardApi.getAdminStats();
         setStats(statsRes.data?.data || null);
-        setDeviceLogs(logsRes.data?.data || []);
       } catch (error) {
         const status = (error as any)?.response?.status;
 
@@ -127,43 +124,23 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-xl border shadow-sm">
-        <div className="flex items-center justify-between gap-2 mb-4">
-          <h2 className="text-lg font-semibold">Log phát hiện thiết bị gần nhất</h2>
-          <span className="text-xs text-slate-500">Realtime kiểm tra DeviceTracker</span>
-        </div>
-
-        {deviceLogs.length === 0 ? (
-          <p className="text-sm text-slate-500">Chưa có dữ liệu log thiết bị.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-slate-500 border-b">
-                  <th className="py-2 pr-3">Thời gian</th>
-                  <th className="py-2 pr-3">IP</th>
-                  <th className="py-2 pr-3">Thiết bị</th>
-                  <th className="py-2 pr-3">Browser</th>
-                  <th className="py-2 pr-3">OS</th>
-                  <th className="py-2 pr-3">Màn hình</th>
-                </tr>
-              </thead>
-              <tbody>
-                {deviceLogs.map((log) => (
-                  <tr key={log.id} className="border-b last:border-b-0">
-                    <td className="py-2 pr-3 whitespace-nowrap">{new Date(log.created_at).toLocaleString("vi-VN")}</td>
-                    <td className="py-2 pr-3">{log.ip_address || "unknown"}</td>
-                    <td className="py-2 pr-3">{log.device_type || "unknown"}</td>
-                    <td className="py-2 pr-3">{log.browser || "unknown"}</td>
-                    <td className="py-2 pr-3">{log.operating_system || "unknown"}</td>
-                    <td className="py-2 pr-3">{log.screen_resolution || "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Device Management Card */}
+      <Link href="/admin/devices">
+        <div className="bg-linear-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200 shadow-sm hover:shadow-md transition-all cursor-pointer">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="bg-blue-500 p-3 rounded-lg">
+                <Smartphone className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">Quản lý Thiết bị</h2>
+                <p className="text-sm text-gray-600">Xem thống kê thiết bị realtime, phân tích theo loại, browser, OS</p>
+              </div>
+            </div>
+            <ArrowRight className="w-5 h-5 text-blue-500" />
           </div>
-        )}
-      </div>
+        </div>
+      </Link>
     </main>
   );
 }

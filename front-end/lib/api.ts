@@ -38,6 +38,7 @@ const getBaseUrl = async () => {
   try {
     // Sử dụng axios để lấy file JSON
     const response = await axios.get(GITHUB_RAW_URL);
+    return process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
     
     // Kiểm tra cấu trúc dữ liệu trả về
     if (response.data && response.data.apiUrl) {
@@ -49,7 +50,6 @@ const getBaseUrl = async () => {
     throw new Error("Invalid JSON structure");
   } catch (error) {
     console.error("❌ Failed to fetch URL from GitHub:", error);
-    return process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
   }
 };
 
@@ -281,6 +281,65 @@ export const dashboardApi = {
 export const deviceApi = {
   identify: (payload: DeviceIdentifyPayload) => api.post('/device/identify', payload),
   getLogs: (limit: number = 30) => api.get('/device/logs', { params: { limit } }),
+  getStats: (range: string = '24h') => api.get('/device/stats', { params: { range } }),
+  getRealtimeStats: () => api.get('/device/realtime'),
+  getHourlyTrend: () => api.get('/device/trend/hourly'),
+};
+
+// API quản lý tài khoản dùng thử (Trial Account)
+export const trialApi = {
+  createTrialAccount: (data: {
+    email: string;
+    full_name?: string;
+    max_devices?: number;
+    max_sessions?: number;
+    max_ips?: number;
+    max_duration_days?: number;
+    features?: any;
+  }) => api.post('/trial/create', data),
+  
+  getTrialAccounts: (status: string = 'active', limit: number = 50) =>
+    api.get('/trial/list', { params: { status, limit } }),
+  
+  getTrialStats: () => api.get('/trial/stats'),
+  
+  getTrialDetail: (userId: string) => api.get(`/trial/${userId}`),
+  
+  extendTrialAccount: (userId: string, additionalDays: number = 7) =>
+    api.post(`/trial/${userId}/extend`, { additionalDays }),
+  
+  cancelTrialAccount: (userId: string, reason?: string) =>
+    api.post(`/trial/${userId}/cancel`, { reason }),
+  
+  checkTrialStatus: () => api.get('/trial/check-status'),
+};
+
+// API theo dõi thiết bị online
+export const onlineDeviceApi = {
+  createSession: (data: {
+    device_id: string;
+    timezone?: string;
+    screen_resolution?: string;
+    platform?: string;
+  }) => api.post('/online-devices/session/create', data),
+  
+  updateActivity: (session_id: string) =>
+    api.post('/online-devices/session/activity', { session_id }),
+  
+  endSession: (session_id: string) =>
+    api.post(`/online-devices/end-session/${ session_id }`),
+  
+  getMySession: (user_id: string) =>
+    api.get('/online-devices/my-sessions', { params: { user_id } }),
+  
+  // Admin endpoints
+  getOnlineDevices: (timeout: number = 30, limit: number = 100) =>
+    api.get('/online-devices/active-devices', { params: { timeout, limit } }),
+  
+  getOnlineStats: () => api.get('/online-devices/stats'),
+  
+  kickOutSession: (session_id: string, reason?: string) =>
+    api.post(`/online-devices/kick-session/${session_id}`, { reason }),
 };
 
 /**

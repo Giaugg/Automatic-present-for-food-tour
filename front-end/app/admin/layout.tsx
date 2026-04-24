@@ -20,6 +20,24 @@ export default function AdminLayout({
             Dashboard
           </Link>
           <Link
+            href="/admin/devices"
+            className="block p-2 rounded-(--radius) text-sidebar-foreground hover:bg-sidebar-accent"
+          >
+            Quản lý Thiết bị
+          </Link>
+          <Link
+            href="/admin/online-devices"
+            className="block p-2 rounded-(--radius) text-sidebar-foreground hover:bg-sidebar-accent"
+          >
+            Thiết Bị Online
+          </Link>
+          <Link
+            href="/admin/trial-accounts"
+            className="block p-2 rounded-(--radius) text-sidebar-foreground hover:bg-sidebar-accent"
+          >
+            Trial Accounts
+          </Link>
+          <Link
             href="/admin/profile"
             className="block p-2 rounded-(--radius) text-sidebar-foreground hover:bg-sidebar-accent"
           >
