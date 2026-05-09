@@ -41,7 +41,6 @@ const getBaseUrl = async () => {
     
     // Kiểm tra cấu trúc dữ liệu trả về
     if (response.data && response.data.apiUrl) {
-      return process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
       dynamicApiUrl = response.data.apiUrl || getApiBaseUrl(); // Fallback nếu apiUrl rỗng
       console.log("✅ API link:", dynamicApiUrl);
       localStorage.setItem('apiUrl', dynamicApiUrl || ''); // Lưu vào localStorage để dùng cho các lần sau
