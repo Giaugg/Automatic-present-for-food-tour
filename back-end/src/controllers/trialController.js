@@ -269,9 +269,9 @@ const extendTrialAccount = async (req, res) => {
     const result = await pool.query(
       `UPDATE trial_accounts 
        SET trial_end_at = trial_end_at + INTERVAL '1 day' * $2,
-           trial_duration_days = trial_duration_days + $2
+           max_duration_days = max_duration_days + $2
        WHERE user_id = $1
-       RETURNING id, trial_start_at, trial_end_at, trial_status, trial_duration_days`,
+       RETURNING id, trial_start_at, trial_end_at, trial_status, max_duration_days`,
       [userId, additionalDays]
     );
 

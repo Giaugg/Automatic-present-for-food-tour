@@ -178,3 +178,74 @@
          rounded-t-xl shadow-[0_-2px_10px_rgba(0,0,0,0.1)]
          md:absolute md:bottom-4 md:left-4 md:right-auto md:w-80 md:rounded-xl;
 }
+/* 5. MOBILE RESPONSIVE OPTIMIZATIONS */
+@layer utilities {
+  /* Safe area insets for notched devices */
+  @media (max-width: 768px) {
+    .safe-area-top {
+      padding-top: max(1rem, env(safe-area-inset-top));
+    }
+    .safe-area-bottom {
+      padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+    .safe-area-left {
+      padding-left: max(1rem, env(safe-area-inset-left));
+    }
+    .safe-area-right {
+      padding-right: max(1rem, env(safe-area-inset-right));
+    }
+  }
+
+  /* Touch-friendly button sizes for mobile */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Mobile-optimized text truncation */
+  .truncate-mobile {
+    @apply truncate;
+  }
+
+  /* Mobile-friendly form inputs */
+  .input-mobile {
+    @apply text-base px-4 py-3 rounded-lg;
+    /* Prevents zoom on iOS when input is focused */
+    font-size: 16px;
+  }
+
+  /* Mobile-optimized scrolling */
+  .scroll-smooth-mobile {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent layout shift on mobile */
+  .no-layout-shift {
+    scrollbar-gutter: stable;
+  }
+}
+
+/* 6. MOBILE-FIRST MEDIA QUERIES */
+@media (max-width: 640px) {
+  /* Small screen optimizations */
+  h1 { @apply text-2xl; }
+  h2 { @apply text-xl; }
+  h3 { @apply text-lg; }
+  
+  /* Reduce padding on mobile */
+  .container { @apply px-4; }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  /* Tablet optimizations */
+  h1 { @apply text-3xl; }
+  h2 { @apply text-2xl; }
+  h3 { @apply text-xl; }
+}
+
+@media (min-width: 769px) {
+  /* Desktop optimizations */
+  h1 { @apply text-4xl; }
+  h2 { @apply text-3xl; }
+  h3 { @apply text-2xl; }
+}

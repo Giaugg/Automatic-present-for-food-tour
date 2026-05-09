@@ -176,19 +176,19 @@ export default function PublicLayout({
 			}
 		>
 			<header className="bg-card border-b border-border sticky top-0 z-[3000] shadow-sm">
-				<nav className="container mx-auto px-4 h-16 flex items-center justify-between">
-					<div className="flex items-center gap-8">
+				<nav className="container mx-auto px-3 sm:px-4 md:px-6 h-14 sm:h-16 flex items-center justify-between">
+					<div className="flex items-center gap-4 sm:gap-6 md:gap-8 min-w-0">
 						<Link
 							href="/"
-							className="text-2xl font-black text-primary tracking-tighter"
+							className="text-lg sm:text-xl md:text-2xl font-black text-primary tracking-tighter whitespace-nowrap flex-shrink-0"
 						>
 							FOOD TOUR
 						</Link>
 
-						<div className="hidden md:flex items-center gap-6">
+						<div className="hidden md:flex items-center gap-4 lg:gap-6">
 							<Link
 								href="/map"
-								className={`text-sm font-bold transition-colors ${
+								className={`text-xs sm:text-sm font-bold transition-colors whitespace-nowrap ${
 									pathname === "/map"
 										? "text-primary"
 										: "text-muted-foreground hover:text-foreground"
@@ -199,7 +199,7 @@ export default function PublicLayout({
 							{user?.role === "admin" && (
 								<Link
 									href="/admin"
-									className={`text-sm font-bold transition-colors ${
+									className={`text-xs sm:text-sm font-bold transition-colors whitespace-nowrap ${
 										pathname.startsWith("/admin")
 											? "text-primary"
 											: "text-muted-foreground hover:text-foreground"
@@ -211,7 +211,7 @@ export default function PublicLayout({
 							{user?.role === "owner" && (
 								<Link
 									href="/owner"
-									className={`text-sm font-bold transition-colors ${
+									className={`text-xs sm:text-sm font-bold transition-colors whitespace-nowrap ${
 										pathname.startsWith("/owner")
 											? "text-primary"
 											: "text-muted-foreground hover:text-foreground"
@@ -223,41 +223,41 @@ export default function PublicLayout({
 						</div>
 					</div>
 
-					<div className="flex items-center gap-4">
+					<div className="flex items-center gap-2 sm:gap-3 md:gap-4 ml-auto flex-shrink-0">
 						{/* --- BỘ CHỌN NGÔN NGỮ DYNAMIC --- */}
-						<div className="relative group mr-2">
-							<button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 hover:bg-muted transition-colors border border-border min-w-[80px] justify-center">
+						<div className="relative group">
+							<button className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-muted/50 hover:bg-muted transition-colors border border-border text-xs sm:text-sm">
 								{isLoadingLangs ? (
 									<Loader2
-										size={16}
-										className="animate-spin text-muted-foreground"
+										size={14}
+										className="animate-spin text-muted-foreground flex-shrink-0"
 									/>
 								) : (
 									<>
-										<span className="text-sm">{getFlag(currentLangCode)}</span>
-										<span className="text-xs font-bold uppercase">
+										<span className="text-sm sm:text-base">{getFlag(currentLangCode)}</span>
+										<span className="text-[10px] sm:text-xs font-bold uppercase hidden sm:inline">
 											{currentLangCode.split("-")[0]}
 										</span>
-										<ChevronDown size={14} className="text-muted-foreground" />
+										<ChevronDown size={12} className="text-muted-foreground flex-shrink-0 hidden sm:inline" />
 									</>
 								)}
 							</button>
 
 							{!isLoadingLangs && activeLanguages.length > 0 && (
-								<div className="absolute right-0 top-full pt-2 w-60 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[3010]">
-									<div className="bg-card border border-border rounded-xl shadow-xl overflow-hidden p-1">
+								<div className="absolute right-0 top-full pt-2 w-48 sm:w-56 lg:w-60 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[3010]">
+									<div className="bg-card border border-border rounded-lg sm:rounded-xl shadow-xl overflow-hidden p-1">
 										{activeLanguages.map((lang) => (
 											<button
 												key={lang.id}
 												onClick={() => handleSelectLanguage(lang.code)}
-												className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium hover:bg-muted rounded-lg transition-colors"
+												className="w-full flex items-center justify-between px-2 sm:px-3 py-1.5 sm:py-2.5 text-xs sm:text-sm font-medium hover:bg-muted rounded-lg transition-colors"
 											>
-												<div className="flex items-center gap-2">
-													<span>{lang.code}</span>
-													<span>{lang.name}</span>
+												<div className="flex items-center gap-2 min-w-0">
+													<span className="text-xs sm:text-sm">{lang.code}</span>
+													<span className="truncate text-xs sm:text-sm">{lang.name}</span>
 												</div>
 												{currentLangCode === lang.code && (
-													<Check size={14} className="text-primary" />
+													<Check size={12} className="text-primary flex-shrink-0" />
 												)}
 											</button>
 										))}
@@ -268,44 +268,44 @@ export default function PublicLayout({
 
 						{/* --- PHẦN USER --- */}
 						{user ? (
-							<div className="flex items-center gap-4">
-								<div className="hidden sm:flex flex-col items-end leading-tight border-r border-border pr-4">
-									<span className="text-sm font-bold text-emerald-600">
+							<div className="flex items-center gap-2 sm:gap-3 md:gap-4">
+								<div className="hidden sm:flex flex-col items-end leading-tight border-r border-border pr-2 sm:pr-3 md:pr-4">
+									<span className="text-xs sm:text-sm font-bold text-emerald-600 truncate">
 										{user.balance.toLocaleString("vi-VN")}đ
 									</span>
-									<span className="text-[10px] font-bold text-orange-500 uppercase">
-										⭐ {user.points} điểm
+									<span className="text-[8px] sm:text-[10px] font-bold text-orange-500 uppercase whitespace-nowrap">
+										⭐ {user.points}
 									</span>
 								</div>
 
 								<div className="relative group">
-									<button className="flex items-center gap-2 p-0.5 rounded-full border-2 border-transparent hover:border-primary/20 transition-all">
-										<div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold shadow-sm">
+									<button className="flex items-center gap-2 p-0.5 rounded-full border-2 border-transparent hover:border-primary/20 transition-all flex-shrink-0">
+										<div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold shadow-sm text-xs sm:text-sm">
 											{user.full_name?.charAt(0).toUpperCase() || "U"}
 										</div>
 									</button>
 
-									<div className="absolute right-0 top-full pt-2 w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[3010]">
-										<div className="bg-card border border-border rounded-2xl shadow-xl overflow-hidden">
-											<div className="px-4 py-3 bg-muted/20 border-b border-border text-foreground">
-												<p className="text-sm font-bold truncate">
+									<div className="absolute right-0 top-full pt-2 w-48 sm:w-56 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[3010]">
+										<div className="bg-card border border-border rounded-lg sm:rounded-2xl shadow-xl overflow-hidden">
+											<div className="px-3 sm:px-4 py-2 sm:py-3 bg-muted/20 border-b border-border text-foreground">
+												<p className="text-xs sm:text-sm font-bold truncate">
 													{user.full_name}
 												</p>
-												<p className="text-[10px] text-muted-foreground truncate">
+												<p className="text-[10px] sm:text-xs text-muted-foreground truncate">
 													{user.email}
 												</p>
 											</div>
 											<div className="p-1">
 												<Link
 													href="/profile"
-													className="block px-3 py-2 text-sm rounded-lg font-medium hover:bg-muted transition-colors"
+													className="block px-3 py-2 text-xs sm:text-sm rounded-lg font-medium hover:bg-muted transition-colors whitespace-nowrap"
 												>
 													Trang cá nhân
 												</Link>
 												<hr className="my-1 border-border/50" />
 												<button
 													onClick={handleLogout}
-													className="w-full text-left px-3 py-2 text-sm text-destructive font-bold hover:bg-destructive/10 rounded-lg transition-colors"
+													className="w-full text-left px-3 py-2 text-xs sm:text-sm text-destructive font-bold hover:bg-destructive/10 rounded-lg transition-colors whitespace-nowrap"
 												>
 													Đăng xuất
 												</button>
@@ -317,7 +317,7 @@ export default function PublicLayout({
 						) : (
 							<Link
 								href="/login"
-								className="px-6 py-2 bg-primary text-white rounded-full text-sm font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+								className="px-3 sm:px-6 py-1.5 sm:py-2 bg-primary text-white rounded-full text-xs sm:text-sm font-bold shadow-lg shadow-primary/20 hover:scale-105 transition-all whitespace-nowrap"
 							>
 								Đăng nhập
 							</Link>
@@ -329,8 +329,8 @@ export default function PublicLayout({
 			<main
 				className={
 					isMapPage
-						? "h-[calc(100dvh-4rem)] overflow-hidden"
-						: "min-h-[calc(100vh-64px)]"
+						? "h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-4rem)] overflow-hidden"
+						: "min-h-[calc(100vh-3.5rem)] sm:min-h-[calc(100vh-4rem)]"
 				}
 			>
 				{children}
@@ -339,33 +339,33 @@ export default function PublicLayout({
 			{/* --- MODAL CHỌN NGÔN NGỮ KHỞI TẠO (DYNAMIC) --- */}
 			{showLangModal && activeLanguages.length > 0 && (
 				<div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-					<div className="bg-card w-full max-w-sm rounded-[2rem] shadow-2xl p-8 border border-border animate-in fade-in zoom-in duration-300">
-						<div className="text-center space-y-4">
-							<div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
-								<Languages size={40} className="text-primary" />
+					<div className="bg-card w-full max-w-sm rounded-lg sm:rounded-[2rem] shadow-2xl p-4 sm:p-8 border border-border animate-in fade-in zoom-in duration-300">
+						<div className="text-center space-y-3 sm:space-y-4">
+							<div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/10 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6">
+								<Languages size={32} className="text-primary sm:w-10 sm:h-10" />
 							</div>
-							<h2 className="text-2xl font-black tracking-tight">
+							<h2 className="text-xl sm:text-2xl font-black tracking-tight">
 								CHỌN NGÔN NGỮ
 							</h2>
-							<p className="text-muted-foreground text-sm font-medium pb-4">
+							<p className="text-muted-foreground text-xs sm:text-sm font-medium pb-2 sm:pb-4">
 								Hãy chọn ngôn ngữ để chúng tôi cung cấp thuyết minh bản đồ phù
 								hợp nhất với bạn.
 							</p>
 
-							<div className="grid gap-3">
+							<div className="grid gap-2 sm:gap-3">
 								{activeLanguages.map((lang) => (
 									<button
 										key={lang.id}
 										onClick={() => handleSelectLanguage(lang.code)}
-										className="flex items-center justify-between p-4 rounded-2xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all group"
+										className="flex items-center justify-between p-2 sm:p-4 rounded-lg sm:rounded-2xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all group"
 									>
-										<span className="text-lg font-bold">
+										<span className="text-base sm:text-lg font-bold">
 											{getFlag(lang.code)}{" "}
 											<span className="ml-2">{lang.name}</span>
 										</span>
-										<div className="w-6 h-6 rounded-full border-2 border-border group-hover:border-primary flex items-center justify-center">
+										<div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 border-border group-hover:border-primary flex items-center justify-center flex-shrink-0">
 											<div
-												className={`w-3 h-3 rounded-full bg-primary transition-opacity ${
+												className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-primary transition-opacity ${
 													currentLangCode === lang.code
 														? "opacity-100"
 														: "opacity-0"

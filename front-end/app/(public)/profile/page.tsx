@@ -23,55 +23,55 @@ export default function ProfilePage() {
     fetchProfile();
   }, []);
 
-  if (loading) return <div className="p-20 text-center font-bold">Đang tải hồ sơ...</div>;
-  if (!user) return <div className="p-20 text-center text-destructive">Bạn cần đăng nhập để xem trang này.</div>;
+  if (loading) return <div className="p-6 sm:p-12 md:p-20 text-center font-bold text-sm sm:text-base">Đang tải hồ sơ...</div>;
+  if (!user) return <div className="p-6 sm:p-12 md:p-20 text-center text-destructive text-sm sm:text-base">Bạn cần đăng nhập để xem trang này.</div>;
 
   return (
-    <main className="min-h-screen bg-muted/30 py-12">
-      <div className="container mx-auto px-4 max-w-4xl">
+    <main className="min-h-screen bg-muted/30 py-6 sm:py-8 md:py-12">
+      <div className="container mx-auto px-3 sm:px-4 md:px-6 max-w-4xl">
         
         {/* Header Profile */}
-        <div className="bg-card rounded-3xl p-8 shadow-sm border border-border mb-8">
-          <div className="flex flex-col md:flex-row items-center gap-8">
+        <div className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-sm border border-border mb-6 sm:mb-8">
+          <div className="flex flex-col md:flex-row items-center gap-4 sm:gap-6 md:gap-8">
             {/* Avatar */}
-            <div className="relative group">
-              <div className="w-32 h-32 rounded-full bg-primary flex items-center justify-center text-white text-5xl font-black shadow-2xl border-4 border-background">
+            <div className="relative group flex-shrink-0">
+              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-primary flex items-center justify-center text-white text-3xl sm:text-5xl font-black shadow-2xl border-4 border-background">
                 {user.full_name?.charAt(0).toUpperCase()}
               </div>
-              <button className="absolute bottom-1 right-1 bg-background p-2 rounded-full shadow-lg border border-border hover:text-primary transition-colors">
+              <button className="absolute bottom-1 right-1 bg-background p-2 rounded-full shadow-lg border border-border hover:text-primary transition-colors text-base sm:text-lg">
                 📸
               </button>
             </div>
 
             {/* User Basic Info */}
-            <div className="flex-1 text-center md:text-left space-y-2">
-              <h1 className="text-3xl font-black tracking-tight">{user.full_name}</h1>
-              <p className="text-muted-foreground font-medium">{user.email}</p>
-              <div className="flex flex-wrap justify-center md:justify-start gap-2 pt-2">
-                <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase">
+            <div className="flex-1 text-center md:text-left space-y-2 sm:space-y-3 w-full md:w-auto">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight break-words">{user.full_name}</h1>
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground font-medium truncate">{user.email}</p>
+              <div className="flex flex-wrap justify-center md:justify-start gap-2 pt-1 sm:pt-2">
+                <span className="px-2 sm:px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase whitespace-nowrap">
                   {user.role}
                 </span>
-                <span className="px-3 py-1 bg-orange-100 text-orange-600 text-xs font-bold rounded-full uppercase">
-                  ⭐ {user.points} Điểm tích lũy
+                <span className="px-2 sm:px-3 py-1 bg-orange-100 text-orange-600 text-xs font-bold rounded-full uppercase whitespace-nowrap">
+                  ⭐ {user.points}
                 </span>
               </div>
             </div>
 
             {/* Wallet Quick View */}
-            <div className="w-full md:w-auto bg-muted/50 p-6 rounded-2xl border border-border/50 text-center">
-              <p className="text-xs font-bold text-muted-foreground uppercase mb-1">Số dư ví hiện tại</p>
-              <p className="text-2xl font-black text-emerald-600">
+            <div className="w-full md:w-auto bg-muted/50 p-4 sm:p-6 rounded-lg sm:rounded-2xl border border-border/50 text-center md:text-center">
+              <p className="text-xs font-bold text-muted-foreground uppercase mb-1">Số dư ví</p>
+              <p className="text-xl sm:text-2xl font-black text-emerald-600 break-words">
                 {Number(user.balance).toLocaleString("vi-VN")}đ
               </p>
-              <Link href="/wallet" className="inline-block mt-3 text-sm font-bold text-primary hover:underline">
-                Nạp thêm tiền →
+              <Link href="/wallet" className="inline-block mt-2 sm:mt-3 text-xs sm:text-sm font-bold text-primary hover:underline whitespace-nowrap">
+                Nạp thêm →
               </Link>
             </div>
           </div>
         </div>
 
         {/* Dashboard Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
           
           {/* Section: Thông tin cá nhân */}
           <div className="bg-card rounded-3xl p-8 shadow-sm border border-border space-y-6">
